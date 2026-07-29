@@ -21,7 +21,7 @@
   }
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
   body{margin:0;background:var(--paper);color:var(--ink);
-    font-family:Nunito,system-ui,sans-serif;-webkit-font-smoothing:antialiased;padding-top:env(safe-area-inset-top)}
+    font-family:Nunito,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
   h1,h2,h3{font-family:'Varela Round',Nunito,sans-serif;font-weight:400;margin:0}
   button{font-family:Nunito,sans-serif;font-weight:800;border:0;cursor:pointer;transition:all .16s ease}
   button:focus-visible,input:focus-visible,textarea:focus-visible{outline:3px solid var(--go);outline-offset:2px}
@@ -30,9 +30,9 @@
   input:focus,textarea:focus{border-color:var(--go);background:#fff;box-shadow:0 0 0 4px var(--wash)}
   .app{max-width:620px;margin:0 auto;padding:18px max(22px,env(safe-area-inset-left)) 116px max(22px,env(safe-area-inset-left))}
 
-  .topbar{position:sticky;top:0;z-index:25;background:#fff;border-bottom:1.5px solid var(--line);margin:-18px -16px 18px;
-    padding-top:env(safe-area-inset-top)}
-  .tinner{max-width:620px;margin:0 auto;padding:16px max(22px,env(safe-area-inset-left)) 16px max(22px,env(safe-area-inset-left));display:flex;align-items:center;justify-content:space-between;gap:12px}
+  .topbar{position:sticky;top:0;z-index:25;background:#fff;border-bottom:1.5px solid var(--line);
+    margin:-18px calc(-1 * max(22px,env(safe-area-inset-left))) 18px;padding-top:env(safe-area-inset-top)}
+  .tinner{max-width:620px;margin:0 auto;padding:13px max(22px,env(safe-area-inset-left));display:flex;align-items:center;justify-content:space-between;gap:12px}
   .branding{display:flex;align-items:center;gap:11px;min-width:0}
   .logomark{width:36px;height:36px;flex-shrink:0;border-radius:11px;background:var(--ink);color:#fff;
     font-family:'Varela Round',sans-serif;font-size:14px;display:flex;align-items:center;justify-content:center;
@@ -181,6 +181,18 @@
   .ycol span{font-size:9px;font-weight:800;color:var(--muted)}
   .badge.secret{background:repeating-linear-gradient(45deg,var(--paper),var(--paper) 8px,#EEF3FB 8px,#EEF3FB 16px);border-style:dashed}
   .badge.secret b{color:var(--park)} .badge.secret .mark{color:var(--park)}
+  .rankladder{display:flex;flex-direction:column;gap:2px}
+  .rrow{display:flex;align-items:center;gap:12px;padding:11px 12px;border-radius:12px}
+  .rrow.reached{background:var(--wash)}
+  .rrow.current{background:var(--ink);color:#fff}
+  .rrow .rdotm{width:20px;flex-shrink:0;text-align:center;font-weight:900;color:var(--go);font-size:13px}
+  .rrow.current .rdotm{color:#9EC1FF}
+  .rrow .rrank{flex:1;font-family:'Varela Round',sans-serif;font-size:16px}
+  .rrow .rreq{font-size:12px;font-weight:800;color:var(--muted);letter-spacing:.02em}
+  .rrow.current .rreq{color:rgba(255,255,255,.75)}
+  .ladderinfo{display:flex;flex-direction:column;gap:12px;margin-top:12px}
+  .linfo b{display:block;font-size:15px;font-weight:800;color:var(--ink)}
+  .linfo span{display:block;font-size:13px;font-weight:700;color:var(--muted);line-height:1.5;margin-top:3px}
   .rank{display:flex;align-items:center;gap:16px}
   .rank .lv{width:74px;height:74px;flex-shrink:0;border-radius:22px;background:var(--ink);color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center}
   .rank .lv b{font-family:'Varela Round',sans-serif;font-size:29px;line-height:1}
@@ -362,6 +374,10 @@ function overallLevel(){
 }
 const RANKS=[[1,'Curious'],[3,'Learner'],[6,'Practitioner'],[10,'Skilled'],[15,'Relentless'],[21,'Unstoppable']];
 const rankFor=lv=>RANKS.filter(r=>lv>=r[0]).slice(-1)[0][1];
+// total reps needed to reach a given overall level (for the explainer)
+function repsForLevel(target){ let lv=1,need=20,floor=0; while(lv<target){ floor+=need; lv++; need=20+(lv-1)*10; } return floor; }
+// the rep total at which each rank begins
+function rankThresholds(){ return RANKS.map(([lv,name])=>({name,lv,reps:repsForLevel(lv)})); }
 
 /* rep streak: distinct days with at least one rep, ending today/yesterday */
 function repDays(){return [...new Set(state.skills.flatMap(s=>s.reps.map(r=>r.day)))];}
@@ -673,6 +689,31 @@ function progPage(){
         <div class="xpbar"><i style="width:${L.into/L.need*100}%"></i></div>
         <div class="pcts"><span>${L.into} of ${L.need} reps to level ${L.lv+1}</span><span>${totalReps()} total</span></div>
       </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="cap">How ranking works</div>
+    <p class="lede" style="margin-top:0;margin-bottom:14px">Every rep you log \u2014 in any skill \u2014 counts toward your overall level. Levels get a little harder each time, and ranks are the titles you earn along the way.</p>
+    <div class="rankladder">
+      ${rankThresholds().map(r=>{
+        const reached=L.lv>=r.lv, current=rankFor(L.lv)===r.name;
+        return `<div class="rrow ${reached?'reached':''} ${current?'current':''}">
+          <span class="rdotm">${reached?'&#10003;':''}</span>
+          <span class="rrank">${r.name}</span>
+          <span class="rreq">${r.reps===0?'start':r.reps.toLocaleString()+' reps'}</span>
+        </div>`;}).join('')}
+    </div>
+    <p class="lede" style="margin-top:14px;margin-bottom:0">You\u2019re <b>${rankFor(L.lv)}</b> at level ${L.lv}. Next rank <b>${(rankThresholds().find(r=>r.lv>L.lv)||{}).name||'\u2014 maxed'}</b>${rankThresholds().find(r=>r.lv>L.lv)?` at ${rankThresholds().find(r=>r.lv>L.lv).reps.toLocaleString()} reps`:''}.</p>
+  </div>
+
+  <div class="card" style="margin-top:12px">
+    <div class="cap">The other ladders</div>
+    <p class="lede" style="margin-top:0">Three levels climb at once, each answering a different question:</p>
+    <div class="ladderinfo">
+      <div class="linfo"><b>Overall level</b><span>All your reps, everywhere. Your \u201cunstoppable\u201d number \u2014 Curious to Unstoppable.</span></div>
+      <div class="linfo"><b>Skill level</b><span>How far up one skill\u2019s 100 you are: Novice \u2192 Apprentice \u2192 Practitioner \u2192 Craftsman \u2192 Master.</span></div>
+      <div class="linfo"><b>Category level</b><span>Reps across an area, every 30: Dabbling \u2192 Building \u2192 Serious \u2192 Sharp \u2192 Formidable.</span></div>
     </div>
   </div>
 
