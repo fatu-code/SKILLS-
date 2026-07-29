@@ -130,10 +130,10 @@
 
   /* stage ladder */
   .ladder{display:flex;flex-direction:column;gap:7px;margin-top:6px}
-  .lrow{display:flex;align-items:center;gap:12px;padding:11px 14px;border-radius:13px;background:var(--paper);border:1.5px solid var(--line)}
+  .lrow{display:flex;align-items:center;gap:14px;padding:11px 14px;border-radius:13px;background:var(--paper);border:1.5px solid var(--line)}
   .lrow.on{background:var(--wash);border-color:var(--go)}
   .lrow.done{background:#fff;border-color:var(--gold)}
-  .lrow .lnum{width:34px;flex-shrink:0;font-family:'Varela Round',sans-serif;font-size:13px;color:var(--muted)}
+  .lrow .lnum{min-width:52px;flex-shrink:0;white-space:nowrap;font-family:'Varela Round',sans-serif;font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
   .lrow.on .lnum,.lrow.done .lnum{color:var(--ink)}
   .lrow .lname{flex:1;font-size:15px;font-weight:800}
   .lrow .lmark{font-size:14px;font-weight:900;color:var(--line)}
