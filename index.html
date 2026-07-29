@@ -148,7 +148,9 @@
   .rdot:hover{border-color:var(--go)}
 
   /* rep history */
-  .rep{display:flex;gap:12px;padding:12px 0;border-bottom:1px solid var(--paper)}
+  .rep{display:flex;gap:12px;padding:12px 6px;border-bottom:1px solid var(--paper);border-radius:10px;cursor:pointer;transition:background .15s}
+  .rep:hover{background:var(--paper)}
+  .rep .edithint{font-size:11px;font-weight:800;color:var(--park);letter-spacing:.03em}
   .rep:last-child{border-bottom:0}
   .rep .ri{width:40px;flex-shrink:0;font-family:'Varela Round',sans-serif;font-size:16px;color:var(--go)}
   .rep .rc{flex:1;min-width:0}
@@ -895,11 +897,11 @@ function renderSheet(){
 
     ${recent.length?`<div class="card" style="box-shadow:none">
       <div class="cap">Recent takes</div>
-      ${recent.map(rep=>`<div class="rep">
+      ${recent.map(rep=>`<div class="rep" data-editrep="${rep.n}">
         <div class="ri">#${rep.n}</div>
-        <div class="rc"><div class="rnote">${rep.note?rep.note:'<span style="color:var(--muted)">no note</span>'}</div>
+        <div class="rc"><div class="rnote">${rep.note?rep.note:'<span style="color:var(--muted)">no note, tap to add</span>'}</div>
           <div class="rmeta">${shortDate(rep.at)}</div></div>
-        <div class="rstars">${rep.rating?'\u2605'.repeat(rep.rating)+'\u2606'.repeat(5-rep.rating):''}</div>
+        <div class="rstars">${rep.rating?'\u2605'.repeat(rep.rating)+'\u2606'.repeat(5-rep.rating):'<span class="edithint">edit</span>'}</div>
       </div>`).join('')}
     </div>`:''}
 
@@ -1015,6 +1017,62 @@ function wireSheet(){
     const t=Number(v); if(t>r&&t<=g){ sk.sprint={target:Math.round(t),start:r,week:iso(weekStart())}; await save(); renderSheet(); } };
   const csb=box.querySelector('[data-clearsprint]'); if(csb) csb.onclick=async()=>{
     const sk=skillById(csb.dataset.clearsprint); delete sk.sprint; await save(); renderSheet(); };
+  box.querySelectorAll('[data-editrep]').forEach(r=>r.onclick=()=>openEditTake(Number(r.dataset.editrep)));
+}
+
+// ---- edit / delete a logged take ----
+let editN=null, editDraft={rating:0,note:''};
+function openEditTake(n){
+  const s=skillById(openSkill); if(!s) return;
+  const t=s.reps.find(r=>r.n===n); if(!t) return;
+  editN=n; editDraft={rating:t.rating||0, note:t.note||''};
+  renderEditTake();
+}
+function renderEditTake(){
+  const s=skillById(openSkill); if(!s){return;}
+  const t=s.reps.find(r=>r.n===editN); if(!t) return;
+  const box=document.getElementById('sheet');
+  box.innerHTML=`
+    <div class="grab"></div>
+    <div class="sheettop">
+      <button class="backbtn" data-backtoskill="1">&#8249; Back</button>
+      <button class="ghost" data-deletetake="1" style="color:#B23A48;border-color:#EAD1D4">Delete take</button>
+    </div>
+    <h2 style="margin-top:2px">Take #${t.n}</h2>
+    <p class="lede" style="margin-top:4px">${shortDate(t.at)}. Fix the rating, add the note you missed, or delete it.</p>
+
+    <div class="card" style="box-shadow:none;margin-top:14px">
+      <div class="cap">How did it go?</div>
+      <div class="rate" id="editRate">${[1,2,3,4,5].map(nn=>`<button class="rdot ${editDraft.rating===nn?'on':''}" data-erate="${nn}">${nn}</button>`).join('')}</div>
+      <textarea id="editNote" placeholder="One line: how did it go? (optional)">${editDraft.note}</textarea>
+      <button class="bigbtn go" data-savetake="1" style="margin-top:12px">Save changes</button>
+    </div>
+    <button class="ghost" data-backtoskill="1" style="width:100%;margin-top:6px;padding:15px">Cancel</button>`;
+
+  box.querySelectorAll('[data-erate]').forEach(b=>b.onclick=()=>{
+    editDraft.rating=Number(b.dataset.erate);
+    const nt=document.getElementById('editNote'); if(nt) editDraft.note=nt.value;
+    renderEditTake();
+  });
+  const nt=document.getElementById('editNote'); if(nt) nt.oninput=()=>{editDraft.note=nt.value;};
+  box.querySelectorAll('[data-backtoskill]').forEach(b=>b.onclick=()=>{editN=null; renderSheet();});
+  const sv=box.querySelector('[data-savetake]'); if(sv) sv.onclick=saveEditTake;
+  const del=box.querySelector('[data-deletetake]'); if(del) del.onclick=deleteTake;
+}
+async function saveEditTake(){
+  const s=skillById(openSkill); if(!s) return;
+  const t=s.reps.find(r=>r.n===editN); if(!t) return;
+  const nt=document.getElementById('editNote'); if(nt) editDraft.note=nt.value;
+  t.rating=editDraft.rating||0; t.note=(editDraft.note||'').trim();
+  await save(); editN=null; renderSheet(); toast('Take updated','Your note and rating are saved.');
+}
+async function deleteTake(){
+  const s=skillById(openSkill); if(!s) return;
+  if(!confirm('Delete take #'+editN+'? The takes after it renumber down by one.')) return;
+  s.reps=s.reps.filter(r=>r.n!==editN);
+  // renumber so the count stays continuous 1..N
+  s.reps.sort((a,b)=>a.at-b.at).forEach((r,i)=>r.n=i+1);
+  await save(); editN=null; render(); renderSheet(); checkBadges(true); toast('Take deleted','You are back to '+repCount(s)+'.');
 }
 
 /* ================= skill management ================= */
