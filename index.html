@@ -31,16 +31,12 @@
   .app{max-width:620px;margin:0 auto;padding:18px max(22px,env(safe-area-inset-left)) 116px max(22px,env(safe-area-inset-left))}
 
   .topbar{position:sticky;top:0;z-index:25;background:#fff;border-bottom:1.5px solid var(--line);
-    margin:-18px calc(-1 * max(22px,env(safe-area-inset-left))) 18px;padding-top:env(safe-area-inset-top)}
-  .tinner{max-width:620px;margin:0 auto;padding:13px max(22px,env(safe-area-inset-left));display:flex;align-items:center;justify-content:space-between;gap:12px}
-  .branding{display:flex;align-items:center;gap:11px;min-width:0}
-  .logomark{width:36px;height:36px;flex-shrink:0;border-radius:11px;background:var(--ink);color:#fff;
-    font-family:'Varela Round',sans-serif;font-size:14px;display:flex;align-items:center;justify-content:center;
-    letter-spacing:-.02em;position:relative;box-shadow:0 2px 8px rgba(11,42,74,.18)}
-  .logomark:after{content:'';position:absolute;left:8px;right:8px;bottom:7px;height:2px;border-radius:2px;background:var(--go)}
-  .greet{font-weight:800;font-size:17px;color:var(--ink);letter-spacing:-.01em}
+    margin:-18px 0 18px;padding-top:env(safe-area-inset-top)}
+  .tinner{max-width:620px;margin:0 auto;padding:14px calc(24px + env(safe-area-inset-left)) 14px calc(24px + env(safe-area-inset-left));display:flex;align-items:center;gap:13px}
+  .hstack{display:flex;flex-direction:column;gap:2px;min-width:0}
+  .greet{font-weight:800;font-size:17px;color:var(--ink);letter-spacing:-.01em;line-height:1.15}
   .greet.brand{font-family:'Varela Round',sans-serif;font-weight:400;color:var(--go);font-size:18px}
-  .tdate{font-size:12px;font-weight:800;color:var(--muted);white-space:nowrap}
+  .tdate{font-size:12px;font-weight:700;color:var(--muted);white-space:nowrap;letter-spacing:.01em}
 
   .cap{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);font-weight:800;margin-bottom:7px}
   .card{background:#fff;border:1.5px solid var(--line);border-radius:20px;box-shadow:var(--shadow);padding:20px;margin-bottom:12px}
@@ -241,11 +237,10 @@
 <body>
 
 <header class="topbar"><div class="tinner">
-  <div class="branding">
-    <div class="logomark">100</div>
+  <div class="hstack">
     <div class="greet" id="greetLine"></div>
+    <div class="tdate" id="topRight"></div>
   </div>
-  <div class="tdate" id="topRight"></div>
 </div></header>
 
 <div class="app">
@@ -332,7 +327,7 @@ const greeting=()=>{const h=new Date().getHours();return h<12?'Good morning':(h<
 /* ================= derived ================= */
 const repCount=s=>s.reps.length;
 const skillById=id=>state.skills.find(s=>s.id===id);
-const activeSkills=()=>state.skills;   // nothing is ever parked — all skills are active
+const activeSkills=()=>state.skills;   // nothing is ever parked, all skills are active
 const totalReps=()=>state.skills.reduce((a,s)=>a+repCount(s),0);
 const masteredCount=()=>state.skills.filter(s=>repCount(s)>=GOAL).length;
 const inProgress=()=>state.skills.filter(s=>repCount(s)>0 && repCount(s)<GOAL).length;
@@ -357,15 +352,15 @@ function catLevel(id){ // a category levels every 30 reps within it
 const CAT_RANKS=['Dabbling','Building','Serious','Sharp','Formidable'];
 const catRank=id=>CAT_RANKS[Math.min(CAT_RANKS.length-1,catLevel(id).lv-1)];
 
-// craft titles that evolve with the stage — the identity layer for each skill
+// craft titles that evolve with the stage, the identity layer for each skill
 const CRAFT_TITLES=['Novice','Apprentice','Practitioner','Craftsman','Master'];
 function craftTitle(reps){ const st=stageOf(reps); return reps>=GOAL?'Master':(st.idx>=0?CRAFT_TITLES[st.idx]:'Unstarted'); }
 
-function skillLevel(s){ // 1..10 across the 100 reps
+function skillLevel(s){ // 1..10 across the 100 takes
   const r=repCount(s);
   return Math.min(10, Math.floor(r/10)+ (r>0?1:0) - (r>0&&r%10===0&&r<100?0:0));
 }
-// overall level from total reps
+// overall level from total takes
 function overallLevel(){
   const r=totalReps();
   let lv=1, need=20, floor=0;
@@ -374,7 +369,7 @@ function overallLevel(){
 }
 const RANKS=[[1,'Curious'],[3,'Learner'],[6,'Practitioner'],[10,'Skilled'],[15,'Relentless'],[21,'Unstoppable']];
 const rankFor=lv=>RANKS.filter(r=>lv>=r[0]).slice(-1)[0][1];
-// total reps needed to reach a given overall level (for the explainer)
+// total takes needed to reach a given overall level (for the explainer)
 function repsForLevel(target){ let lv=1,need=20,floor=0; while(lv<target){ floor+=need; lv++; need=20+(lv-1)*10; } return floor; }
 // the rep total at which each rank begins
 function rankThresholds(){ return RANKS.map(([lv,name])=>({name,lv,reps:repsForLevel(lv)})); }
@@ -449,60 +444,60 @@ async function save(){ await store.set(KEY,JSON.stringify(state)); }
 /* ================= badges ================= */
 const B=(n,d,t,f)=>({n,d,t,f});
 const BADGES=[
-  B('First rep','Log your first rep in any skill',1,()=>({have:totalReps()>0?1:0,need:1})),
-  B('Ten deep','10 total reps',1,()=>({have:totalReps(),need:10})),
-  B('Half a hundred','50 total reps',2,()=>({have:totalReps(),need:50})),
-  B('The hundred','100 total reps',2,()=>({have:totalReps(),need:100})),
-  B('Five hundred','500 total reps',3,()=>({have:totalReps(),need:500})),
-  B('Thousand','1,000 total reps',3,()=>({have:totalReps(),need:1000})),
+  B('First take','Log your first take in any skill',1,()=>({have:totalReps()>0?1:0,need:1})),
+  B('Ten deep','10 total takes',1,()=>({have:totalReps(),need:10})),
+  B('Half a hundred','50 total takes',2,()=>({have:totalReps(),need:50})),
+  B('The hundred','100 total takes',2,()=>({have:totalReps(),need:100})),
+  B('Five hundred','500 total takes',3,()=>({have:totalReps(),need:500})),
+  B('Thousand','1,000 total takes',3,()=>({have:totalReps(),need:1000})),
 
-  B('Off the mark','Reach rep 10 in a skill',1,()=>({have:Math.max(0,...state.skills.map(repCount)),need:10})),
-  B('Finding it','Reach rep 30 in a skill',1,()=>({have:Math.max(0,...state.skills.map(repCount)),need:30})),
-  B('Getting good','Reach rep 60 in a skill',2,()=>({have:Math.max(0,...state.skills.map(repCount)),need:60})),
-  B('Sharp','Reach rep 90 in a skill',2,()=>({have:Math.max(0,...state.skills.map(repCount)),need:90})),
+  B('Off the mark','Reach take 10 in a skill',1,()=>({have:Math.max(0,...state.skills.map(repCount)),need:10})),
+  B('Finding it','Reach take 30 in a skill',1,()=>({have:Math.max(0,...state.skills.map(repCount)),need:30})),
+  B('Getting good','Reach take 60 in a skill',2,()=>({have:Math.max(0,...state.skills.map(repCount)),need:60})),
+  B('Sharp','Reach take 90 in a skill',2,()=>({have:Math.max(0,...state.skills.map(repCount)),need:90})),
   B('Mastered one','Take a skill to 100',3,()=>({have:masteredCount(),need:1})),
   B('Mastered three','Master three skills',3,()=>({have:masteredCount(),need:3})),
 
   B('Three on the go','3 skills active at once',1,()=>({have:activeSkills().length,need:3})),
-  B('Wide net','5 skills with reps logged',2,()=>({have:state.skills.filter(s=>repCount(s)>0).length,need:5})),
-  B('Rated highly','A rep you scored 5/5',1,()=>({have:state.skills.some(s=>s.reps.some(r=>r.rating===5))?1:0,need:1})),
-  B('Climbing','Average 4+ over a skill\\u2019s last 10 reps',2,()=>{
+  B('Wide net','5 skills with takes logged',2,()=>({have:state.skills.filter(s=>repCount(s)>0).length,need:5})),
+  B('Rated highly','A take you scored 5/5',1,()=>({have:state.skills.some(s=>s.reps.some(r=>r.rating===5))?1:0,need:1})),
+  B('Climbing','Average 4+ over a skill\\u2019s last 10 takes',2,()=>{
     const best=Math.max(0,...state.skills.map(s=>{const l=s.reps.slice(-10).filter(r=>r.rating);return l.length>=10?l.reduce((a,r)=>a+r.rating,0)/l.length:0;}));
     return {have:best>=4?1:0,need:1};}),
-  B('Seven day run','Log a rep 7 days in a row',2,()=>({have:streak(),need:7})),
-  B('Thirty day run','Log a rep 30 days in a row',3,()=>({have:streak(),need:30})),
-  B('Every skill going','Log a rep in every skill you have',2,()=>({have:state.skills.length&&state.skills.every(s=>repCount(s)>0)?1:0,need:1})),
+  B('Seven day run','Log a take 7 days in a row',2,()=>({have:streak(),need:7})),
+  B('Thirty day run','Log a take 30 days in a row',3,()=>({have:streak(),need:30})),
+  B('Every skill going','Log a take in every skill you have',2,()=>({have:state.skills.length&&state.skills.every(s=>repCount(s)>0)?1:0,need:1})),
   B('Level ten','Reach overall level 10',3,()=>({have:overallLevel().lv,need:10})),
 
   // ---- category ----
-  B('Renaissance','Log a rep in all 7 categories',3,()=>({have:CATS.filter(([id])=>catReps(id)>0).length,need:7})),
+  B('Renaissance','Log a take in all 7 categories',3,()=>({have:CATS.filter(([id])=>catReps(id)>0).length,need:7})),
   B('Category climber','Take any category to level 3',2,()=>({have:Math.max(1,...CATS.map(([id])=>catLevel(id).lv)),need:3})),
   B('Area master','Master every skill in a category',3,()=>{
     const done=CATS.some(([id])=>{const l=catSkills(id);return l.length&&l.every(s=>repCount(s)>=GOAL);});
     return {have:done?1:0,need:1};}),
 
   // ---- rating / quality ----
-  B('Five stars','Log five 5-rated reps',2,()=>({have:state.skills.reduce((a,s)=>a+s.reps.filter(r=>r.rating===5).length,0),need:5})),
-  B('Consistent quality','A skill averaging 4+ over 20 reps',3,()=>{
+  B('Five stars','Log five 5-rated takes',2,()=>({have:state.skills.reduce((a,s)=>a+s.reps.filter(r=>r.rating===5).length,0),need:5})),
+  B('Consistent quality','A skill averaging 4+ over 20 takes',3,()=>{
     const best=Math.max(0,...state.skills.map(s=>{const r=s.reps.filter(x=>x.rating);return r.length>=20?r.reduce((a,x)=>a+x.rating,0)/r.length:0;}));
     return {have:best>=4?1:0,need:1};}),
 
   // ---- breadth vs depth ----
-  B('Halfway heroes','3 skills past rep 50',2,()=>({have:state.skills.filter(s=>repCount(s)>=50).length,need:3})),
-  B('Deep diver','A single skill to rep 75',2,()=>({have:Math.max(0,...state.skills.map(repCount)),need:75})),
+  B('Halfway heroes','3 skills past take 50',2,()=>({have:state.skills.filter(s=>repCount(s)>=50).length,need:3})),
+  B('Deep diver','A single skill to take 75',2,()=>({have:Math.max(0,...state.skills.map(repCount)),need:75})),
 
   // ---- consistency / momentum ----
-  B('Fourteen day run','Log a rep 14 days in a row',3,()=>({have:streak(),need:14})),
-  B('Big day','Log 5 reps in one day',1,()=>({have:Math.max(0,...repDays().map(d=>state.skills.reduce((a,s)=>a+s.reps.filter(r=>r.day===d).length,0))),need:5})),
+  B('Fourteen day run','Log a take 14 days in a row',3,()=>({have:streak(),need:14})),
+  B('Big day','Log 5 takes in one day',1,()=>({have:Math.max(0,...repDays().map(d=>state.skills.reduce((a,s)=>a+s.reps.filter(r=>r.day===d).length,0))),need:5})),
   B('Triple threat','3 different skills in one day',2,()=>{
     const best=Math.max(0,...repDays().map(d=>new Set(state.skills.filter(s=>s.reps.some(r=>r.day===d)).map(s=>s.id)).size));
     return {have:best,need:3};}),
 
   // ---- secret badges (hidden until earned) ----
-  Object.assign(B('Early bird','A rep logged before 8am',1,()=>({have:state.skills.some(s=>s.reps.some(r=>new Date(r.at).getHours()<8))?1:0,need:1})),{secret:true}),
-  Object.assign(B('Night owl','A rep logged after 11pm',1,()=>({have:state.skills.some(s=>s.reps.some(r=>new Date(r.at).getHours()>=23))?1:0,need:1})),{secret:true}),
-  Object.assign(B('Ten in a day','10 reps in a single day',2,()=>({have:Math.max(0,...repDays().map(d=>state.skills.reduce((a,s)=>a+s.reps.filter(r=>r.day===d).length,0))),need:10})),{secret:true}),
-  Object.assign(B('The grind','A rep every day for 50 days',3,()=>({have:streak(),need:50})),{secret:true})
+  Object.assign(B('Early bird','A take logged before 8am',1,()=>({have:state.skills.some(s=>s.reps.some(r=>new Date(r.at).getHours()<8))?1:0,need:1})),{secret:true}),
+  Object.assign(B('Night owl','A take logged after 11pm',1,()=>({have:state.skills.some(s=>s.reps.some(r=>new Date(r.at).getHours()>=23))?1:0,need:1})),{secret:true}),
+  Object.assign(B('Ten in a day','10 takes in a single day',2,()=>({have:Math.max(0,...repDays().map(d=>state.skills.reduce((a,s)=>a+s.reps.filter(r=>r.day===d).length,0))),need:10})),{secret:true}),
+  Object.assign(B('The grind','A take every day for 50 days',3,()=>({have:streak(),need:50})),{secret:true})
 ];
 const TIER_PTS={1:50,2:120,3:250};
 function badgeState(){ return BADGES.map(b=>{const p=b.f();return {...b,have:Math.min(p.have,p.need),need:p.need,got:p.have>=p.need,pts:TIER_PTS[b.t]};}); }
@@ -552,20 +547,20 @@ function ratedWellToday(){ return state.skills.reduce((a,s)=>a+s.reps.filter(r=>
 function dailyMissions(){
   const done1=repsToday()>=1, done3=repsToday()>=3, done2skills=skillsTouchedToday()>=2, doneRate=ratedWellToday()>=1;
   return [
-    {n:'Log one rep today', have:Math.min(repsToday(),1), need:1, pts:20},
-    {n:'Stack three reps', have:Math.min(repsToday(),3), need:3, pts:40},
+    {n:'Log one take today', have:Math.min(repsToday(),1), need:1, pts:20},
+    {n:'Stack three takes', have:Math.min(repsToday(),3), need:3, pts:40},
     {n:'Touch two different skills', have:Math.min(skillsTouchedToday(),2), need:2, pts:30},
-    {n:'Land a 4+ rated rep', have:Math.min(ratedWellToday(),1), need:1, pts:25}
+    {n:'Land a 4+ rated take', have:Math.min(ratedWellToday(),1), need:1, pts:25}
   ];
 }
 function weeklyCard(){
   const have=repsThisWeek(), goal=WEEK_GOAL();
   const pct=Math.min(100,have/goal*100), done=have>=goal;
   return `<div class="card">
-    <div class="cap">This week ${done?'\u2014 done \u2713':''}</div>
+    <div class="cap">This week ${done?', done \u2713':''}</div>
     <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:10px">
       <b style="font-family:'Varela Round',sans-serif;font-size:30px;color:${done?'var(--gold)':'var(--go)'}">${have}</b>
-      <span style="font-size:13px;font-weight:700;color:var(--muted)">of ${goal} reps this week</span>
+      <span style="font-size:13px;font-weight:700;color:var(--muted)">of ${goal} takes this week</span>
     </div>
     <div class="pbar"><i class="${done?'gold':''}" style="width:${pct}%"></i></div>
     <div class="ghostrow"><button class="ghost" data-weekgoal="1">Change weekly goal</button></div>
@@ -599,7 +594,7 @@ function homePage(){
   const L=overallLevel();
   return `
   <div class="quad">
-    <div class="stat accent"><b>${totalReps()}</b><span>total reps</span></div>
+    <div class="stat accent"><b>${totalReps()}</b><span>total takes</span></div>
     <div class="stat"><b class="sm">Level ${L.lv}</b><span>${rankFor(L.lv)}</span></div>
     <div class="stat accent"><b>${streak()}</b><span>day streak</span></div>
     <div class="stat"><b>${masteredCount()}</b><span>skills mastered</span></div>
@@ -623,7 +618,7 @@ function skillCard(s){
       <div><h3>${s.name}</h3><div class="scat">${catName(s.cat)}</div></div>
       <span class="stage ${done?'done':''}">${done?'Mastered':st.name}</span>
     </div>
-    <div class="repline"><b>${r}</b><span>of ${GOAL} reps</span></div>
+    <div class="repline"><b>${r}</b><span>of ${GOAL} takes</span></div>
     ${stageBar(r)}
   </div>`;
 }
@@ -631,7 +626,7 @@ function skillCard(s){
 function skillsPage(){
   // front door: a grid of category tiles
   return `
-  ${pageHead('Skills','Pick an area. Each skill inside is 100 reps to mastery.')}
+  ${pageHead('Skills','Pick an area. Each skill inside is 100 takes to mastery.')}
   <div class="cattiles">
     ${CATS.map(([id,label,icon])=>{
       const list=state.skills.filter(s=>s.cat===id);
@@ -658,10 +653,10 @@ function catPage(catId){
   return `
   <button class="backbtn" data-backcats="1">&#8249; All categories</button>
   <div class="phead" style="margin-top:12px"><h1>${label}</h1>
-    <p>${catReps(catId)>0?`${catRank(catId)} &middot; Level ${catLevel(catId).lv} &middot; `:''}${all.length} skill${all.length===1?'':'s'} &middot; ${tot} of ${cap} reps</p></div>
+    <p>${catReps(catId)>0?`${catRank(catId)} &middot; Level ${catLevel(catId).lv} &middot; `:''}${all.length} skill${all.length===1?'':'s'} &middot; ${tot} of ${cap} takes</p></div>
   ${catReps(catId)>0?`<div class="card" style="margin-bottom:14px"><div class="cap">Category level ${catLevel(catId).lv} &middot; ${catRank(catId)}</div>
     <div class="xpbar"><i style="width:${catLevel(catId).into/catLevel(catId).need*100}%"></i></div>
-    <div class="pcts"><span>${catLevel(catId).need-catLevel(catId).into} reps to level ${catLevel(catId).lv+1}</span><span>${tot} in this area</span></div></div>`:''}
+    <div class="pcts"><span>${catLevel(catId).need-catLevel(catId).into} takes to level ${catLevel(catId).lv+1}</span><span>${tot} in this area</span></div></div>`:''}
   ${all.length?all.map(skillCard).join(''):`<p class="lede" style="margin:0 4px">No skills here yet.</p>`}
   <button class="bigbtn" data-addskill="1" style="margin-top:14px">+ Add a skill</button>`;
 }
@@ -677,7 +672,7 @@ function progPage(){
 
   <div class="card sharecard">
     <div class="cap">Share your climb</div>
-    <p class="lede" style="margin-top:0">Turn your reps into a clean card for your phone. Unstoppable in the making.</p>
+    <p class="lede" style="margin-top:0">Turn your takes into a clean card for your phone. Unstoppable in the making.</p>
     <button class="bigbtn" data-sharecard="1">Create my card</button>
   </div>
 
@@ -687,38 +682,38 @@ function progPage(){
       <div class="lv"><b>${L.lv}</b><span>level</span></div>
       <div class="who"><h2>${rankFor(L.lv)}</h2>
         <div class="xpbar"><i style="width:${L.into/L.need*100}%"></i></div>
-        <div class="pcts"><span>${L.into} of ${L.need} reps to level ${L.lv+1}</span><span>${totalReps()} total</span></div>
+        <div class="pcts"><span>${L.into} of ${L.need} takes to level ${L.lv+1}</span><span>${totalReps()} total</span></div>
       </div>
     </div>
   </div>
 
   <div class="card">
     <div class="cap">How ranking works</div>
-    <p class="lede" style="margin-top:0;margin-bottom:14px">Every rep you log \u2014 in any skill \u2014 counts toward your overall level. Levels get a little harder each time, and ranks are the titles you earn along the way.</p>
+    <p class="lede" style="margin-top:0;margin-bottom:14px">Every try you log, in any skill, counts toward your overall level. Levels get a little harder each time, and ranks are the titles you earn along the way.</p>
     <div class="rankladder">
       ${rankThresholds().map(r=>{
         const reached=L.lv>=r.lv, current=rankFor(L.lv)===r.name;
         return `<div class="rrow ${reached?'reached':''} ${current?'current':''}">
           <span class="rdotm">${reached?'&#10003;':''}</span>
           <span class="rrank">${r.name}</span>
-          <span class="rreq">${r.reps===0?'start':r.reps.toLocaleString()+' reps'}</span>
+          <span class="rreq">${r.reps===0?'start':r.reps.toLocaleString()+' takes'}</span>
         </div>`;}).join('')}
     </div>
-    <p class="lede" style="margin-top:14px;margin-bottom:0">You\u2019re <b>${rankFor(L.lv)}</b> at level ${L.lv}. Next rank <b>${(rankThresholds().find(r=>r.lv>L.lv)||{}).name||'\u2014 maxed'}</b>${rankThresholds().find(r=>r.lv>L.lv)?` at ${rankThresholds().find(r=>r.lv>L.lv).reps.toLocaleString()} reps`:''}.</p>
+    <p class="lede" style="margin-top:14px;margin-bottom:0">You\u2019re <b>${rankFor(L.lv)}</b> at level ${L.lv}. Next rank <b>${(rankThresholds().find(r=>r.lv>L.lv)||{}).name||', maxed'}</b>${rankThresholds().find(r=>r.lv>L.lv)?` at ${rankThresholds().find(r=>r.lv>L.lv).reps.toLocaleString()} takes`:''}.</p>
   </div>
 
   <div class="card" style="margin-top:12px">
     <div class="cap">The other ladders</div>
     <p class="lede" style="margin-top:0">Three levels climb at once, each answering a different question:</p>
     <div class="ladderinfo">
-      <div class="linfo"><b>Overall level</b><span>All your reps, everywhere. Your \u201cunstoppable\u201d number \u2014 Curious to Unstoppable.</span></div>
+      <div class="linfo"><b>Overall level</b><span>All your takes, everywhere. Your \u201cunstoppable\u201d number, Curious to Unstoppable.</span></div>
       <div class="linfo"><b>Skill level</b><span>How far up one skill\u2019s 100 you are: Novice \u2192 Apprentice \u2192 Practitioner \u2192 Craftsman \u2192 Master.</span></div>
-      <div class="linfo"><b>Category level</b><span>Reps across an area, every 30: Dabbling \u2192 Building \u2192 Serious \u2192 Sharp \u2192 Formidable.</span></div>
+      <div class="linfo"><b>Category level</b><span>Takes across an area, every 30: Dabbling \u2192 Building \u2192 Serious \u2192 Sharp \u2192 Formidable.</span></div>
     </div>
   </div>
 
   <div class="quad">
-    <div class="stat accent"><b>${totalReps()}</b><span>total reps</span></div>
+    <div class="stat accent"><b>${totalReps()}</b><span>total takes</span></div>
     <div class="stat"><b>${inProgress()}</b><span>in progress</span></div>
     <div class="stat"><b>${masteredCount()}</b><span>mastered</span></div>
     <div class="stat"><b>${gotN}/${BADGES.length}</b><span>badges</span></div>
@@ -741,7 +736,7 @@ function progPage(){
   </div>
 
   <div class="card">
-    <div class="cap">Skills by reps</div>
+    <div class="cap">Skills by takes</div>
     ${ranked.map(s=>{const r=repCount(s),st=stageOf(r),done=r>=GOAL;
       return `<div style="padding:12px 0;border-bottom:1px solid var(--paper)">
         <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px">
@@ -760,7 +755,7 @@ function progPage(){
       state.skills.forEach(s=>s.reps.forEach(r=>{ if((r.day||'').slice(0,4)==='2026'){ const m=Number(r.day.slice(5,7))-1; if(m>=0&&m<12)counts[m]++; }}));
       const max=Math.max(1,...counts);
       return `<div class="yeargrid">${counts.map((c,i)=>`<div class="ycol"><div class="ybar"><i style="height:${c/max*100}%"></i></div><span>${M[i]}</span></div>`).join('')}</div>
-        <div class="chainmeta"><span><b>${counts.reduce((a,b)=>a+b,0)}</b> reps in 2026</span><span>peak ${max}/mo</span></div>`;
+        <div class="chainmeta"><span><b>${counts.reduce((a,b)=>a+b,0)}</b> takes in 2026</span><span>peak ${max}/mo</span></div>`;
     })()}
   </div>
 
@@ -803,7 +798,7 @@ function sprintBlock(s){
     return `<div class="card" style="box-shadow:none;border-color:var(--go)">
       <div class="cap">Sprint \u00b7 this week</div>
       <div style="display:flex;justify-content:space-between;align-items:baseline">
-        <b style="font-size:15px;font-weight:800">Reach rep ${sp.target}</b>
+        <b style="font-size:15px;font-weight:800">Reach take ${sp.target}</b>
         <span style="font-size:13px;font-weight:800;color:var(--go)">${r}/${sp.target}</span></div>
       <div class="pbar" style="margin-top:10px"><i style="width:${pct}%"></i></div>
       <div class="ghostrow"><button class="ghost" data-clearsprint="${s.id}">Cancel sprint</button></div>
@@ -812,13 +807,13 @@ function sprintBlock(s){
   if(sp && sp.target<=r && sp.week===iso(weekStart())){
     return `<div class="card" style="box-shadow:none;border-color:var(--gold)">
       <div class="cap">Sprint done \u2713</div>
-      <p class="lede" style="margin:0">You hit rep ${sp.target} this week. Set another?</p>
+      <p class="lede" style="margin:0">You hit take ${sp.target} this week. Set another?</p>
       <div class="ghostrow"><button class="ghost" data-setsprint="${s.id}">New sprint</button></div>
     </div>`;
   }
   return `<div class="card" style="box-shadow:none">
     <div class="cap">Sprint</div>
-    <p class="lede" style="margin:0 0 12px">Set a short target for this week \u2014 a push closer than 100.</p>
+    <p class="lede" style="margin:0 0 12px">Set a short target for this week, a push closer than 100.</p>
     <button class="ghost" data-setsprint="${s.id}">Set a weekly sprint</button>
   </div>`;
 }
@@ -848,13 +843,13 @@ function renderSheet(){
     </div>
     ${stageBar(r)}
 
-    ${done?`<p class="lede" style="text-align:center;margin-top:16px">100 reps. This skill is yours. ${avg?`You averaged ${avg.toFixed(1)}/5 across the climb.`:''}</p>
+    ${done?`<p class="lede" style="text-align:center;margin-top:16px">100 takes. This skill is yours. ${avg?`You averaged ${avg.toFixed(1)}/5 across the climb.`:''}</p>
       <button class="bigbtn go" data-masterycard="${s.id}" style="margin-top:12px">Create mastery card &nbsp;&#9733;</button>`
     :`<div class="card" style="margin-top:18px;box-shadow:none">
-      <div class="cap">Log rep ${r+1}</div>
+      <div class="cap">Log take ${r+1}</div>
       <div class="rate" id="rateRow">${[1,2,3,4,5].map(n=>`<button class="rdot ${draft.rating===n?'on':''}" data-rate="${n}">${n}</button>`).join('')}</div>
       <textarea id="repNote" placeholder="One line: how did it go? (optional)">${draft.note}</textarea>
-      <button class="bigbtn go" data-logrep="${s.id}" style="margin-top:12px">Log rep ${r+1} &nbsp;&#43;</button>
+      <button class="bigbtn go" data-logrep="${s.id}" style="margin-top:12px">Log take ${r+1} &nbsp;&#43;</button>
     </div>`}
 
     ${!done?sprintBlock(s):''}
@@ -870,7 +865,7 @@ function renderSheet(){
     </div>`:''}
 
     ${recent.length?`<div class="card" style="box-shadow:none">
-      <div class="cap">Recent reps</div>
+      <div class="cap">Recent takes</div>
       ${recent.map(rep=>`<div class="rep">
         <div class="ri">#${rep.n}</div>
         <div class="rc"><div class="rnote">${rep.note?rep.note:'<span style="color:var(--muted)">no note</span>'}</div>
@@ -886,7 +881,7 @@ function renderSheet(){
 
 function ratingTrend(s){
   const rated=s.reps.filter(r=>r.rating);
-  if(rated.length<2) return '<p class="lede" style="margin:0">Log a few rated reps and your improvement line appears here.</p>';
+  if(rated.length<2) return '<p class="lede" style="margin:0">Log a few rated takes and your improvement line appears here.</p>';
   const W=280,H=70,pad=6;
   const pts=rated.map((r,i)=>{
     const x=pad+(i/(rated.length-1))*(W-pad*2);
@@ -921,15 +916,15 @@ async function logRep(id){
 
   // ---- layered celebration: pick the biggest win to headline, confetti scales with it ----
   let big=false;
-  if(n>=GOAL){ toast(s.name+' mastered! \u2b50','100 reps. The skill is yours forever.'); big=true; }
-  else if(firstEverInSkill){ toast('First rep \u2014 '+s.name+'!','The hardest one is done. 99 to go.'); big=true; }
-  else if(after>before){ toast('New stage \u2014 '+STAGES[after].name+'!', s.name+' \u00b7 rep '+n+'. You levelled up.'); big=true; }
-  else if([25,50,75].includes(n)){ toast('Rep '+n+' \u00b7 '+s.name, n===50?'Halfway to mastery. Huge.':'Milestone rep. Keep stacking.'); big=true; }
-  else if(rating>=5){ toast('A perfect 5 \u2b50','Rep '+n+' of '+s.name+'. That\u2019s the standard now.'); }
-  else if(rating && priorRated.length>=3 && rating>priorBest){ toast('Personal best!','Rep '+n+' was your best '+s.name+' yet ('+rating+'/5).'); }
-  else if(rating && priorRated.length>=3 && rating>priorAvg+0.5){ toast('You\u2019re improving','Rep '+n+' beat your '+s.name+' average. It\u2019s working.'); }
-  else if(firstToday){ toast('First rep of the day','Rep '+n+' of '+s.name+'. Momentum starts now.'); }
-  else { toast('Rep '+n+' logged','\u2191 '+s.name+' \u00b7 '+(GOAL-n)+' to mastery.'); }
+  if(n>=GOAL){ toast(s.name+' mastered! \u2b50','100 takes. The skill is yours forever.'); big=true; }
+  else if(firstEverInSkill){ toast('First take, '+s.name+'!','The hardest one is done. 99 to go.'); big=true; }
+  else if(after>before){ toast('New stage, '+STAGES[after].name+'!', s.name+' \u00b7 take '+n+'. You levelled up.'); big=true; }
+  else if([25,50,75].includes(n)){ toast('Take '+n+' \u00b7 '+s.name, n===50?'Halfway to mastery. Huge.':'Milestone take. Keep stacking.'); big=true; }
+  else if(rating>=5){ toast('A perfect 5 \u2b50','Take '+n+' of '+s.name+'. That\u2019s the standard now.'); }
+  else if(rating && priorRated.length>=3 && rating>priorBest){ toast('Personal best!','Take '+n+' was your best '+s.name+' yet ('+rating+'/5).'); }
+  else if(rating && priorRated.length>=3 && rating>priorAvg+0.5){ toast('You\u2019re improving','Take '+n+' beat your '+s.name+' average. It\u2019s working.'); }
+  else if(firstToday){ toast('First take of the day','Take '+n+' of '+s.name+'. Momentum starts now.'); }
+  else { toast('Take '+n+' logged','\u2191 '+s.name+' \u00b7 '+(GOAL-n)+' to mastery.'); }
 
   confetti(big);
   render(); renderSheet(); checkBadges();
@@ -994,7 +989,7 @@ function wireSheet(){
 
 /* ================= skill management ================= */
 async function addSkill(){
-  const name=prompt('Name the skill you want to master in 100 reps:');
+  const name=prompt('Name the skill you want to master in 100 takes:');
   if(!name||!name.trim()) return;
   let cat=openCat;
   if(!cat){
@@ -1012,7 +1007,7 @@ async function skillMenu(id){
   if(c==='1'){ const nm=prompt('New name:',s.name); if(nm&&nm.trim()) s.name=nm.trim(); }
   else if(c==='2'){ const menu=CATS.map((x,i)=>(i+1)+' = '+x[1]).join('\\n'); const pick=prompt('Move to which category?\\n\\n'+menu,'');
     const ci=Number(pick)-1; if(ci>=0&&ci<CATS.length) s.cat=CATS[ci][0]; }
-  else if(c==='3'){ if(confirm('Delete '+s.name+' and all its reps? This cannot be undone.')){ state.skills=state.skills.filter(x=>x.id!==id); closeSheet(); } }
+  else if(c==='3'){ if(confirm('Delete '+s.name+' and all its takes? This cannot be undone.')){ state.skills=state.skills.filter(x=>x.id!==id); closeSheet(); } }
   else return;
   await save(); render(); if(openSkill) renderSheet();
 }
@@ -1056,7 +1051,7 @@ function makeShareCard(){
   x.fillStyle='#FFFFFF'; x.font=RF(84); x.fillText(rankFor(L.lv), 70, 208);
   x.fillStyle='#BcD6FF'; x.font=F(800,32); x.fillText(`Level ${L.lv}`, 74, 258);
   x.fillStyle='#FFFFFF'; x.font=RF(196); x.fillText(String(totalReps()), 64, 452);
-  x.fillStyle='#9EC1FF'; x.font=F(900,38); x.letterSpacing='3px'; x.fillText('TOTAL REPS', 76, 540); x.letterSpacing='0px';
+  x.fillStyle='#9EC1FF'; x.font=F(900,38); x.letterSpacing='3px'; x.fillText('TOTAL TAKES', 76, 540); x.letterSpacing='0px';
 
   const stats=[
     [inProgress(),'skills in progress'],
@@ -1064,7 +1059,7 @@ function makeShareCard(){
     [state.skills.filter(s=>repCount(s)>0).length,'skills started'],
     [streak(),'day streak'],
     [closest?closest.name:'\\u2013','closest to 100'],
-    [closest?repCount(closest)+'/100':'\\u2013','its reps']
+    [closest?repCount(closest)+'/100':'\\u2013','its takes']
   ];
   const gx=64,gap=26,gw=(W-gx*2-gap)/2,gh=150,gyTop=GT+46;
   stats.forEach((st,i)=>{const col=i%2,row=Math.floor(i/2);const bx=gx+col*(gw+gap),by=gyTop+row*(gh+gap);
@@ -1078,7 +1073,7 @@ function makeShareCard(){
   const dateY=H-84,subY=H-52,ruleY=H-132;
   x.strokeStyle=LINE; x.lineWidth=1.5; x.beginPath(); x.moveTo(72,ruleY); x.lineTo(W-72,ruleY); x.stroke();
   x.textAlign='left'; x.fillStyle=INK; x.font=F(800,27); x.fillText(longToday(), 72, dateY);
-  x.fillStyle=MUT; x.font=F(700,22); x.fillText(`${totalReps()} reps and counting`, 72, subY);
+  x.fillStyle=MUT; x.font=F(700,22); x.fillText(`${totalReps()} takes and counting`, 72, subY);
   x.textAlign='right'; x.fillStyle=GO; x.font=F(800,24); x.fillText('Unstoppable in the making', W-72, (dateY+subY)/2+2); x.textAlign='left';
 
   c.toBlob(blob=>{const url=URL.createObjectURL(blob);const a=document.createElement('a');
@@ -1113,9 +1108,9 @@ function makeMasteryCard(id){
   x.fillStyle='#9EC1FF'; x.font=F(800,32); x.fillText(catName(sk.cat), 74, yy+52);
 
   x.fillStyle='#FFFFFF'; x.font=RF(184); x.fillText('100', 64, 540);
-  x.fillStyle=GOLD; x.font=F(900,38); x.letterSpacing='3px'; x.fillText('REPS COMPLETE', 76, 588); x.letterSpacing='0px';
+  x.fillStyle=GOLD; x.font=F(900,38); x.letterSpacing='3px'; x.fillText('TAKES COMPLETE', 76, 588); x.letterSpacing='0px';
 
-  const stats=[[days,'days of work'],[avg?avg.toFixed(1)+'/5':'\u2013','average rating'],[best||'\u2013','best rep'],['\u2605\u2605\u2605\u2605\u2605','the standard']];
+  const stats=[[days,'days of work'],[avg?avg.toFixed(1)+'/5':'\u2013','average rating'],[best||'\u2013','best take'],['\u2605\u2605\u2605\u2605\u2605','the standard']];
   const gx=64,gap=26,gw=(W-gx*2-gap)/2,gh=150,gyTop=GT+56;
   stats.forEach((st,i)=>{const col=i%2,row=Math.floor(i/2);const bx=gx+col*(gw+gap),by=gyTop+row*(gh+gap);
     x.fillStyle='#F4F7FC'; roundRect(x,bx,by,gw,gh,24); x.fill(); x.strokeStyle=LINE; x.lineWidth=2; roundRect(x,bx,by,gw,gh,24); x.stroke();
