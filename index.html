@@ -28,16 +28,16 @@
   input,textarea,select{font-family:Nunito,sans-serif;font-weight:700;color:var(--ink);background:var(--paper);
     border:1.5px solid var(--line);border-radius:13px;padding:12px 14px;outline:none;width:100%;font-size:16px}
   input:focus,textarea:focus{border-color:var(--go);background:#fff;box-shadow:0 0 0 4px var(--wash)}
-  .app{max-width:620px;margin:0 auto;padding:18px 16px 116px}
+  .app{max-width:620px;margin:0 auto;padding:18px max(22px,env(safe-area-inset-left)) 116px max(22px,env(safe-area-inset-left))}
 
   .topbar{position:sticky;top:0;z-index:25;background:#fff;border-bottom:1.5px solid var(--line);margin:-18px -16px 18px;
     padding-top:env(safe-area-inset-top)}
-  .tinner{max-width:620px;margin:0 auto;padding:17px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+  .tinner{max-width:620px;margin:0 auto;padding:16px max(22px,env(safe-area-inset-left)) 16px max(22px,env(safe-area-inset-left));display:flex;align-items:center;justify-content:space-between;gap:12px}
   .branding{display:flex;align-items:center;gap:11px;min-width:0}
-  .logomark{width:38px;height:38px;flex-shrink:0;border-radius:11px;background:var(--ink);color:#fff;
-    font-family:'Varela Round',sans-serif;font-size:15px;display:flex;align-items:center;justify-content:center;
-    letter-spacing:-.02em;position:relative}
-  .logomark:after{content:'';position:absolute;left:9px;right:9px;bottom:7px;height:2px;border-radius:2px;background:var(--go)}
+  .logomark{width:36px;height:36px;flex-shrink:0;border-radius:11px;background:var(--ink);color:#fff;
+    font-family:'Varela Round',sans-serif;font-size:14px;display:flex;align-items:center;justify-content:center;
+    letter-spacing:-.02em;position:relative;box-shadow:0 2px 8px rgba(11,42,74,.18)}
+  .logomark:after{content:'';position:absolute;left:8px;right:8px;bottom:7px;height:2px;border-radius:2px;background:var(--go)}
   .greet{font-weight:800;font-size:17px;color:var(--ink);letter-spacing:-.01em}
   .greet.brand{font-family:'Varela Round',sans-serif;font-weight:400;color:var(--go);font-size:18px}
   .tdate{font-size:12px;font-weight:800;color:var(--muted);white-space:nowrap}
