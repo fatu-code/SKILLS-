@@ -274,19 +274,37 @@ const store={
 const KEY='fatu-100-v4';
 
 /* ================= model ================= */
+// stage names with their share of the journey (fractions of the goal).
+// these five bands scale to whatever a skill's target is.
 const STAGES=[
-  {from:1,to:10,name:'Beginner'},
-  {from:11,to:30,name:'Finding it'},
-  {from:31,to:60,name:'Getting good'},
-  {from:61,to:90,name:'Sharp'},
-  {from:91,to:100,name:'Mastery'}
+  {name:'Beginner',      lo:0.00, hi:0.10},
+  {name:'Finding it',    lo:0.10, hi:0.30},
+  {name:'Getting good',  lo:0.30, hi:0.60},
+  {name:'Sharp',         lo:0.60, hi:0.90},
+  {name:'Mastery',       lo:0.90, hi:1.00}
 ];
-const GOAL=100;
-function stageOf(reps){
-  if(reps<=0) return {idx:-1,name:'Not started',from:0,to:0};
-  for(let i=0;i<STAGES.length;i++){ if(reps>=STAGES[i].from && reps<=STAGES[i].to) return {idx:i,...STAGES[i]}; }
-  return {idx:STAGES.length-1,...STAGES[STAGES.length-1]};
+const DEFAULT_GOAL=100;
+const goalOf=s=>(s&&s.goal)||DEFAULT_GOAL;
+// the take-range each stage covers for a given goal (1-indexed, inclusive)
+function stageBands(goal){
+  return STAGES.map((st,i)=>{
+    const from=Math.floor(st.lo*goal)+1;
+    const to=(i===STAGES.length-1)?goal:Math.floor(st.hi*goal);
+    return {idx:i,name:st.name,from:Math.max(1,from),to:Math.max(from,to)};
+  });
 }
+// stage for a given take count within a goal
+function stageOfN(reps,goal){
+  if(reps<=0) return {idx:-1,name:'Not started',from:0,to:0};
+  const bands=stageBands(goal);
+  for(const b of bands){ if(reps>=b.from && reps<=b.to) return b; }
+  return bands[bands.length-1];
+}
+// convenience: stage for a whole skill object
+const stageOf=s=>{
+  if(typeof s==='number') return stageOfN(s,DEFAULT_GOAL);       // back-compat if a number slips in
+  return stageOfN(repCount(s),goalOf(s));
+};
 
 const uid=()=>'s'+Date.now().toString(36)+Math.random().toString(36).slice(2,5);
 const CATS=[
@@ -333,16 +351,16 @@ const repCount=s=>s.reps.length;
 const skillById=id=>state.skills.find(s=>s.id===id);
 const activeSkills=()=>state.skills;   // nothing is ever parked, all skills are active
 const totalReps=()=>state.skills.reduce((a,s)=>a+repCount(s),0);
-const masteredCount=()=>state.skills.filter(s=>repCount(s)>=GOAL).length;
-const inProgress=()=>state.skills.filter(s=>repCount(s)>0 && repCount(s)<GOAL).length;
+const masteredCount=()=>state.skills.filter(s=>repCount(s)>=goalOf(s)).length;
+const inProgress=()=>state.skills.filter(s=>repCount(s)>0 && repCount(s)<goalOf(s)).length;
 const avgRating=s=>{const r=s.reps.filter(x=>x.rating);return r.length?r.reduce((a,x)=>a+x.rating,0)/r.length:0;};
 
 /* points: rep=10, crossing into a new stage=+40, finishing 100=+150 (all baked into level math) */
 function skillPoints(s){
   let p=repCount(s)*10;
-  const st=stageOf(repCount(s));
+  const st=stageOf(s);
   p += Math.max(0,st.idx)*40;        // stages passed
-  if(repCount(s)>=GOAL) p+=150;
+  if(repCount(s)>=goalOf(s)) p+=150;
   return p;
 }
 const totalPoints=()=>state.skills.reduce((a,s)=>a+skillPoints(s),0);
@@ -358,11 +376,12 @@ const catRank=id=>CAT_RANKS[Math.min(CAT_RANKS.length-1,catLevel(id).lv-1)];
 
 // craft titles that evolve with the stage, the identity layer for each skill
 const CRAFT_TITLES=['Novice','Apprentice','Practitioner','Craftsman','Master'];
-function craftTitle(reps){ const st=stageOf(reps); return reps>=GOAL?'Master':(st.idx>=0?CRAFT_TITLES[st.idx]:'Unstarted'); }
+function craftTitle(reps,goal){ goal=goal||DEFAULT_GOAL; const st=stageOfN(reps,goal); return reps>=goal?'Master':(st.idx>=0?CRAFT_TITLES[st.idx]:'Unstarted'); }
 
-function skillLevel(s){ // 1..10 across the 100 takes
-  const r=repCount(s);
-  return Math.min(10, Math.floor(r/10)+ (r>0?1:0) - (r>0&&r%10===0&&r<100?0:0));
+function skillLevel(s){ // 1..10 across the skill's own target
+  const r=repCount(s), goal=goalOf(s);
+  if(r<=0) return 1;
+  return Math.min(10, Math.ceil(r/goal*10));
 }
 // overall level from total takes
 function overallLevel(){
@@ -440,6 +459,7 @@ function migrate(){
     if(!sk.cat || !validCats.includes(sk.cat)){ const nm=(sk.name||'').toLowerCase(); sk.cat=seedMap[nm]||legacyCat[nm]||'business'; changed=true; }
     if(sk.status!=='active'){ sk.status='active'; changed=true; }
     if(!Array.isArray(sk.reps)){ sk.reps=[]; changed=true; }
+    if(!sk.goal){ sk.goal=DEFAULT_GOAL; changed=true; }
   });
   if(changed) save();
 }
@@ -477,7 +497,7 @@ const BADGES=[
   B('Renaissance','Log a take in all 7 categories',3,()=>({have:CATS.filter(([id])=>catReps(id)>0).length,need:7})),
   B('Category climber','Take any category to level 3',2,()=>({have:Math.max(1,...CATS.map(([id])=>catLevel(id).lv)),need:3})),
   B('Area master','Master every skill in a category',3,()=>{
-    const done=CATS.some(([id])=>{const l=catSkills(id);return l.length&&l.every(s=>repCount(s)>=GOAL);});
+    const done=CATS.some(([id])=>{const l=catSkills(id);return l.length&&l.every(s=>repCount(s)>=goalOf(s));});
     return {have:done?1:0,need:1};}),
 
   // ---- rating / quality ----
@@ -536,10 +556,11 @@ let tt=null;
 function toast(title,sub){const t=document.getElementById('toast');t.innerHTML=`<b>${title}</b><span>${sub}</span>`;t.hidden=false;clearTimeout(tt);tt=setTimeout(()=>t.hidden=true,3600);}
 
 /* ================= pages ================= */
-function stageBar(reps,big){
-  const pct=Math.min(100,reps/GOAL*100);
-  const done=reps>=GOAL;
-  const ticks=[10,30,60,90].map(m=>`<u style="left:${m}%"></u>`).join('');
+function stageBar(reps,goal){
+  goal=goal||DEFAULT_GOAL;
+  const pct=Math.min(100,reps/goal*100);
+  const done=reps>=goal;
+  const ticks=[10,30,60,90].map(m=>`<u style="left:${m}%"></u>`).join('');   // stage boundaries are proportional
   return `<div class="pbar"><i class="${done?'gold':''}" style="width:${pct}%"></i>${ticks}</div>`;
 }
 
@@ -616,26 +637,26 @@ function homePage(){
 }
 
 function skillCard(s){
-  const r=repCount(s), st=stageOf(r), done=r>=GOAL;
+  const r=repCount(s), goal=goalOf(s), st=stageOf(s), done=r>=goal;
   return `<div class="skill" data-open="${s.id}">
     <div class="stop">
       <div><h3>${s.name}</h3><div class="scat">${catName(s.cat)}</div></div>
       <span class="stage ${done?'done':''}">${done?'Mastered':st.name}</span>
     </div>
-    <div class="repline"><b>${r}</b><span>of ${GOAL} takes</span></div>
-    ${stageBar(r)}
+    <div class="repline"><b>${r}</b><span>of ${goal} takes</span></div>
+    ${stageBar(r,goal)}
   </div>`;
 }
 
 function skillsPage(){
   // front door: a grid of category tiles
   return `
-  ${pageHead('Skills','Pick an area. Each skill inside is 100 takes to mastery.')}
+  ${pageHead('Skills','Pick an area. Log your takes and climb each skill to mastery.')}
   <div class="cattiles">
     ${CATS.map(([id,label,icon])=>{
       const list=state.skills.filter(s=>s.cat===id);
-      const tot=list.reduce((a,s)=>a+repCount(s),0), cap=list.length*GOAL||1;
-      const mastered=list.filter(s=>repCount(s)>=GOAL).length;
+      const tot=list.reduce((a,s)=>a+repCount(s),0), cap=list.reduce((a,s)=>a+goalOf(s),0)||1;
+      const mastered=list.filter(s=>repCount(s)>=goalOf(s)).length;
       const pct=Math.round(tot/cap*100);
       const cl=catLevel(id), reps=catReps(id);
       const meta = reps>0 ? `${catRank(id)} \u00b7 Lv ${cl.lv}` : `${list.length} skill${list.length===1?'':'s'}`;
@@ -653,7 +674,7 @@ function skillsPage(){
 function catPage(catId){
   const label=catName(catId);
   const all=state.skills.filter(s=>s.cat===catId);
-  const tot=all.reduce((a,s)=>a+repCount(s),0), cap=all.length*GOAL||1;
+  const tot=all.reduce((a,s)=>a+repCount(s),0), cap=all.reduce((a,s)=>a+goalOf(s),0)||1;
   return `
   <button class="backbtn" data-backcats="1">&#8249; All categories</button>
   <div class="phead" style="margin-top:12px"><h1>${label}</h1>
@@ -728,8 +749,8 @@ function progPage(){
     ${CATS.map(([id,label])=>{
       const list=state.skills.filter(x=>x.cat===id);
       if(!list.length) return '';
-      const tot=list.reduce((a,x)=>a+repCount(x),0), cap=list.length*GOAL;
-      const mastered=list.filter(x=>repCount(x)>=GOAL).length;
+      const tot=list.reduce((a,x)=>a+repCount(x),0), cap=list.reduce((a,x)=>a+goalOf(x),0)||1;
+      const mastered=list.filter(x=>repCount(x)>=goalOf(x)).length;
       return `<div style="padding:11px 0;border-bottom:1px solid var(--paper)">
         <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px">
           <b style="font-size:15px;font-weight:800">${label} ${tot>0?`<span style="font-weight:800;color:var(--go);font-size:12px">&middot; ${catRank(id)} Lv${catLevel(id).lv}</span>`:''}</b>
@@ -741,13 +762,13 @@ function progPage(){
 
   <div class="card">
     <div class="cap">Skills by takes</div>
-    ${ranked.map(s=>{const r=repCount(s),st=stageOf(r),done=r>=GOAL;
+    ${ranked.map(s=>{const r=repCount(s),goal=goalOf(s),st=stageOf(s),done=r>=goal;
       return `<div style="padding:12px 0;border-bottom:1px solid var(--paper)">
         <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px">
           <b style="font-size:15px;font-weight:800">${s.name}</b>
-          <span style="font-size:13px;font-weight:800;color:var(--muted)"><em style="font-style:normal;color:var(--ink);font-family:Varela Round">${r}</em>/100 &middot; ${done?'Mastered':st.name}</span>
+          <span style="font-size:13px;font-weight:800;color:var(--muted)"><em style="font-style:normal;color:var(--ink);font-family:Varela Round">${r}</em>/${goal} &middot; ${done?'Mastered':st.name}</span>
         </div>
-        <div style="margin-top:8px">${stageBar(r)}</div>
+        <div style="margin-top:8px">${stageBar(r,goal)}</div>
       </div>`;}).join('')}
   </div>
 
@@ -824,9 +845,9 @@ function sprintBlock(s){
 
 function renderSheet(){
   const s=skillById(openSkill); if(!s){closeSheet();return;}
-  const r=repCount(s), st=stageOf(r), done=r>=GOAL, avg=avgRating(s);
+  const r=repCount(s), goal=goalOf(s), st=stageOf(s), done=r>=goal, avg=avgRating(s);
   const recent=[...s.reps].slice(-8).reverse();
-  const ladder=STAGES.map((stg,i)=>{
+  const ladder=stageBands(goal).map((stg)=>{
     const passed=r>stg.to, current=r>=stg.from&&r<=stg.to;
     return `<div class="lrow ${passed?'done':''} ${current?'on':''}">
       <div class="lnum">${stg.from}\\u2013${stg.to}</div>
@@ -841,13 +862,13 @@ function renderSheet(){
       <button class="ghost" data-skillmenu="${s.id}">Manage</button>
     </div>
     <div class="counter">
-      <div class="n">${r}<small>/100</small></div>
+      <div class="n">${r}<small>/${goal}</small></div>
       <div class="stagelabel">${done?'Mastered &#10003;':st.name}</div>
-      <div class="crafttitle">${craftTitle(r)}${r>0&&!done?` &middot; Level ${skillLevel(s)}`:''}</div>
+      <div class="crafttitle">${craftTitle(r,goal)}${r>0&&!done?` &middot; Level ${skillLevel(s)}`:''}</div>
     </div>
-    ${stageBar(r)}
+    ${stageBar(r,goal)}
 
-    ${done?`<p class="lede" style="text-align:center;margin-top:16px">100 takes. This skill is yours. ${avg?`You averaged ${avg.toFixed(1)}/5 across the climb.`:''}</p>
+    ${done?`<p class="lede" style="text-align:center;margin-top:16px">${goal} takes. This skill is yours. ${avg?`You averaged ${avg.toFixed(1)}/5 across the climb.`:''}</p>
       <button class="bigbtn go" data-masterycard="${s.id}" style="margin-top:12px">Create mastery card &nbsp;&#9733;</button>`
     :`<div class="card" style="margin-top:18px;box-shadow:none">
       <div class="cap">Log take ${r+1}</div>
@@ -901,9 +922,10 @@ function ratingTrend(s){
 
 /* ================= actions ================= */
 async function logRep(id){
-  const s=skillById(id); if(!s||repCount(s)>=GOAL) return;
+  const s=skillById(id); if(!s||repCount(s)>=goalOf(s)) return;
+  const goal=goalOf(s);
   const beforeReps=repCount(s);
-  const before=stageOf(beforeReps).idx;
+  const before=stageOfN(beforeReps,goal).idx;
   const n=beforeReps+1;
   const rating=draft.rating||0;
   // context for small-win detection (before pushing)
@@ -914,21 +936,21 @@ async function logRep(id){
   const firstEverInSkill = beforeReps===0;
 
   s.reps.push({n, rating, note:(draft.note||'').trim(), at:Date.now(), day:todayStr()});
-  const after=stageOf(n).idx;
+  const after=stageOfN(n,goal).idx;
   draft={rating:0,note:''};
   await save();
 
   // ---- layered celebration: pick the biggest win to headline, confetti scales with it ----
   let big=false;
-  if(n>=GOAL){ toast(s.name+' mastered! \u2b50','100 takes. The skill is yours forever.'); big=true; }
-  else if(firstEverInSkill){ toast('First take, '+s.name+'!','The hardest one is done. 99 to go.'); big=true; }
+  if(n>=goal){ toast(s.name+' mastered! \u2b50', goal+' takes. The skill is yours forever.'); big=true; }
+  else if(firstEverInSkill){ toast('First take, '+s.name+'!','The hardest one is done. '+(goal-1)+' to go.'); big=true; }
   else if(after>before){ toast('New stage, '+STAGES[after].name+'!', s.name+' \u00b7 take '+n+'. You levelled up.'); big=true; }
-  else if([25,50,75].includes(n)){ toast('Take '+n+' \u00b7 '+s.name, n===50?'Halfway to mastery. Huge.':'Milestone take. Keep stacking.'); big=true; }
+  else if([Math.round(goal*.25),Math.round(goal*.5),Math.round(goal*.75)].includes(n)){ toast('Take '+n+' \u00b7 '+s.name, n===Math.round(goal*.5)?'Halfway to mastery. Huge.':'Milestone take. Keep stacking.'); big=true; }
   else if(rating>=5){ toast('A perfect 5 \u2b50','Take '+n+' of '+s.name+'. That\u2019s the standard now.'); }
   else if(rating && priorRated.length>=3 && rating>priorBest){ toast('Personal best!','Take '+n+' was your best '+s.name+' yet ('+rating+'/5).'); }
   else if(rating && priorRated.length>=3 && rating>priorAvg+0.5){ toast('You\u2019re improving','Take '+n+' beat your '+s.name+' average. It\u2019s working.'); }
   else if(firstToday){ toast('First take of the day','Take '+n+' of '+s.name+'. Momentum starts now.'); }
-  else { toast('Take '+n+' logged','\u2191 '+s.name+' \u00b7 '+(GOAL-n)+' to mastery.'); }
+  else { toast('Take '+n+' logged','\u2191 '+s.name+' \u00b7 '+(goal-n)+' to mastery.'); }
 
   confetti(big);
   render(); renderSheet(); checkBadges();
@@ -984,17 +1006,19 @@ function wireSheet(){
   const mm=box.querySelector('[data-skillmenu]'); if(mm) mm.onclick=()=>skillMenu(mm.dataset.skillmenu);
   const mc=box.querySelector('[data-masterycard]'); if(mc) mc.onclick=()=>makeMasteryCard(mc.dataset.masterycard);
   const ssb=box.querySelector('[data-setsprint]'); if(ssb) ssb.onclick=async()=>{
-    const sk=skillById(ssb.dataset.setsprint); const r=repCount(sk);
-    const v=prompt('Reach which rep by end of this week?\n\nYou\u2019re at '+r+' now.', Math.min(GOAL,r+5));
-    const t=Number(v); if(t>r&&t<=GOAL){ sk.sprint={target:Math.round(t),start:r,week:iso(weekStart())}; await save(); renderSheet(); } };
+    const sk=skillById(ssb.dataset.setsprint); const r=repCount(sk); const g=goalOf(sk);
+    const v=prompt('Reach which take by end of this week?\n\nYou\u2019re at '+r+' of '+g+' now.', Math.min(g,r+5));
+    const t=Number(v); if(t>r&&t<=g){ sk.sprint={target:Math.round(t),start:r,week:iso(weekStart())}; await save(); renderSheet(); } };
   const csb=box.querySelector('[data-clearsprint]'); if(csb) csb.onclick=async()=>{
     const sk=skillById(csb.dataset.clearsprint); delete sk.sprint; await save(); renderSheet(); };
 }
 
 /* ================= skill management ================= */
 async function addSkill(){
-  const name=prompt('Name the skill you want to master in 100 takes:');
+  const name=prompt('Name the skill you want to master:');
   if(!name||!name.trim()) return;
+  const gv=prompt('How many takes to master it?\\n\\n100 is the default. Pick what\\u2019s realistic for this skill \\u2014 you can change it later.','100');
+  const goal=Math.max(1,Math.round(Number(gv))||100);
   let cat=openCat;
   if(!cat){
     const menu=CATS.map((c,i)=>(i+1)+' = '+c[1]).join('\\n');
@@ -1002,7 +1026,7 @@ async function addSkill(){
     const ci=Number(pick)-1;
     cat=(ci>=0&&ci<CATS.length)?CATS[ci][0]:'business';
   }
-  state.skills.push({id:uid(),name:name.trim(),cat,reps:[],status:'active',created:Date.now()});
+  state.skills.push({id:uid(),name:name.trim(),cat,goal,reps:[],status:'active',created:Date.now()});
   await save(); render(); checkBadges();
 }
 async function skillMenu(id){
@@ -1041,7 +1065,7 @@ function makeShareCard(){
   const c=document.createElement('canvas'); c.width=W*s; c.height=H*s;
   const x=c.getContext('2d'); x.scale(s,s); x.textBaseline='alphabetic';
   const L=overallLevel();
-  const closest=[...state.skills].filter(s=>repCount(s)<GOAL).sort((a,b)=>repCount(b)-repCount(a))[0];
+  const closest=[...state.skills].filter(s=>repCount(s)<goalOf(s)).sort((a,b)=>(repCount(b)/goalOf(b))-(repCount(a)/goalOf(a)))[0];
   const F=(w,sz)=>`${w} ${sz}px Nunito, system-ui, sans-serif`, RF=sz=>`400 ${sz}px "Varela Round", Nunito, sans-serif`;
   const INK='#0B2A4A', GO='#2563EB', MUT='#5A6E88', LINE='#DCE6F5';
 
@@ -1063,7 +1087,7 @@ function makeShareCard(){
     [state.skills.filter(s=>repCount(s)>0).length,'skills started'],
     [streak(),'day streak'],
     [closest?closest.name:'\\u2013','closest to 100'],
-    [closest?repCount(closest)+'/100':'\\u2013','its takes']
+    [closest?repCount(closest)+'/'+goalOf(closest):'\\u2013','its takes']
   ];
   const gx=64,gap=26,gw=(W-gx*2-gap)/2,gh=150,gyTop=GT+46;
   stats.forEach((st,i)=>{const col=i%2,row=Math.floor(i/2);const bx=gx+col*(gw+gap),by=gyTop+row*(gh+gap);
