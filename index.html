@@ -35,7 +35,11 @@
   .tinner{max-width:620px;margin:0 auto;padding:14px calc(24px + env(safe-area-inset-left)) 14px calc(24px + env(safe-area-inset-left));display:flex;align-items:center;gap:13px}
   .hstack{display:flex;flex-direction:column;gap:2px;min-width:0}
   .greet{font-weight:800;font-size:17px;color:var(--ink);letter-spacing:-.01em;line-height:1.15}
-  .greet.brand{font-family:'Varela Round',sans-serif;font-weight:400;color:var(--go);font-size:18px}
+  .greet.brand{font-size:0}
+  .wordmark{display:inline-flex;align-items:center;gap:7px;font-family:'Varela Round',sans-serif}
+  .wm-name{font-size:21px;color:var(--ink);letter-spacing:-.015em}
+  .wm-num{font-size:19px;color:#fff;background:var(--ink);border-radius:10px;padding:3px 10px 4px;letter-spacing:.02em;
+    box-shadow:0 2px 8px rgba(11,42,74,.22)}
   .tdate{font-size:12px;font-weight:700;color:var(--muted);white-space:nowrap;letter-spacing:.01em}
 
   .cap{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);font-weight:800;margin-bottom:7px}
@@ -936,7 +940,7 @@ function render(){
   const onHome=page==='home';
   const gl=document.getElementById('greetLine'), tr=document.getElementById('topRight');
   if(onHome){ gl.textContent=greeting()+', Fatu'; gl.classList.remove('brand'); tr.textContent=longToday(); }
-  else { gl.textContent='Fatu\\u2019s 100'; gl.classList.add('brand'); tr.textContent=''; }
+  else { gl.innerHTML='<span class="wordmark"><span class="wm-name">Fatu\u2019s</span><span class="wm-num">100</span></span>'; gl.classList.add('brand'); tr.textContent='Master any skill in 100 takes'; }
 
   document.getElementById('p-home').innerHTML = page==='home'?homePage():'';
   document.getElementById('p-skills').innerHTML = page==='skills'?(openCat?catPage(openCat):skillsPage()):'';
