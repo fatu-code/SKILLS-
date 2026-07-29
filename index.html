@@ -211,7 +211,10 @@
     box-shadow:0 -8px 40px rgba(11,42,74,.22);animation:rise .28s cubic-bezier(.2,.85,.25,1)}
   .sheet[hidden]{display:none}
   @keyframes rise{from{transform:translateY(30px);opacity:.5}to{transform:none;opacity:1}}
-  .grab{width:44px;height:5px;border-radius:99px;background:var(--line);margin:8px auto 16px}
+  .grab{width:44px;height:5px;border-radius:99px;background:var(--line);margin:8px auto 14px}
+  .sheettop{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:6px}
+  .sheettop .backbtn{font-size:15px;font-weight:800;color:var(--muted);padding:6px 2px}
+  .sheettop .backbtn:hover{color:var(--go)}
   .sheet h2{font-size:23px;margin-bottom:4px}
   textarea{resize:none;min-height:64px}
 
@@ -485,7 +488,7 @@ const BADGES=[
   B('Three on the go','3 skills active at once',1,()=>({have:activeSkills().length,need:3})),
   B('Wide net','5 skills with takes logged',2,()=>({have:state.skills.filter(s=>repCount(s)>0).length,need:5})),
   B('Rated highly','A take you scored 5/5',1,()=>({have:state.skills.some(s=>s.reps.some(r=>r.rating===5))?1:0,need:1})),
-  B('Climbing','Average 4+ over a skill\\u2019s last 10 takes',2,()=>{
+  B('Climbing','Average 4+ over a skill last 10 takes',2,()=>{
     const best=Math.max(0,...state.skills.map(s=>{const l=s.reps.slice(-10).filter(r=>r.rating);return l.length>=10?l.reduce((a,r)=>a+r.rating,0)/l.length:0;}));
     return {have:best>=4?1:0,need:1};}),
   B('Seven day run','Log a take 7 days in a row',2,()=>({have:streak(),need:7})),
@@ -850,17 +853,18 @@ function renderSheet(){
   const ladder=stageBands(goal).map((stg)=>{
     const passed=r>stg.to, current=r>=stg.from&&r<=stg.to;
     return `<div class="lrow ${passed?'done':''} ${current?'on':''}">
-      <div class="lnum">${stg.from}\\u2013${stg.to}</div>
+      <div class="lnum">${stg.from}\u2013${stg.to}</div>
       <div class="lname">${stg.name}</div>
-      <div class="lmark">${passed?'&#10003;':(current?'\\u25b8':'')}</div>
+      <div class="lmark">${passed?'&#10003;':(current?'\u25b8':'')}</div>
     </div>`;}).join('');
 
   document.getElementById('sheet').innerHTML=`
     <div class="grab"></div>
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px">
-      <h2>${s.name}</h2>
+    <div class="sheettop">
+      <button class="backbtn" data-closesheet="1">&#8249; Back</button>
       <button class="ghost" data-skillmenu="${s.id}">Manage</button>
     </div>
+    <h2 style="margin-top:2px">${s.name}</h2>
     <div class="counter">
       <div class="n">${r}<small>/${goal}</small></div>
       <div class="stagelabel">${done?'Mastered &#10003;':st.name}</div>
@@ -895,7 +899,7 @@ function renderSheet(){
         <div class="ri">#${rep.n}</div>
         <div class="rc"><div class="rnote">${rep.note?rep.note:'<span style="color:var(--muted)">no note</span>'}</div>
           <div class="rmeta">${shortDate(rep.at)}</div></div>
-        <div class="rstars">${rep.rating?'\\u2605'.repeat(rep.rating)+'\\u2606'.repeat(5-rep.rating):''}</div>
+        <div class="rstars">${rep.rating?'\u2605'.repeat(rep.rating)+'\u2606'.repeat(5-rep.rating):''}</div>
       </div>`).join('')}
     </div>`:''}
 
@@ -1002,7 +1006,7 @@ function wireSheet(){
   if(note) note.oninput=()=>{draft.note=note.value;};
   const lr=box.querySelector('[data-logrep]');
   if(lr) lr.onclick=()=>{const n=document.getElementById('repNote');if(n)draft.note=n.value;logRep(lr.dataset.logrep);};
-  const cs=box.querySelector('[data-closesheet]'); if(cs) cs.onclick=closeSheet;
+  box.querySelectorAll('[data-closesheet]').forEach(cs=>cs.onclick=closeSheet);
   const mm=box.querySelector('[data-skillmenu]'); if(mm) mm.onclick=()=>skillMenu(mm.dataset.skillmenu);
   const mc=box.querySelector('[data-masterycard]'); if(mc) mc.onclick=()=>makeMasteryCard(mc.dataset.masterycard);
   const ssb=box.querySelector('[data-setsprint]'); if(ssb) ssb.onclick=async()=>{
@@ -1017,12 +1021,12 @@ function wireSheet(){
 async function addSkill(){
   const name=prompt('Name the skill you want to master:');
   if(!name||!name.trim()) return;
-  const gv=prompt('How many takes to master it?\\n\\n100 is the default. Pick what\\u2019s realistic for this skill \\u2014 you can change it later.','100');
+  const gv=prompt('How many takes to master it?\n\n100 is the default. Pick what is realistic for this skill, you can change it later.','100');
   const goal=Math.max(1,Math.round(Number(gv))||100);
   let cat=openCat;
   if(!cat){
-    const menu=CATS.map((c,i)=>(i+1)+' = '+c[1]).join('\\n');
-    const pick=prompt('Which category?\\n\\n'+menu+'\\n\\nType a number:');
+    const menu=CATS.map((c,i)=>(i+1)+' = '+c[1]).join('\n');
+    const pick=prompt('Which category?\n\n'+menu+'\n\nType a number:');
     const ci=Number(pick)-1;
     cat=(ci>=0&&ci<CATS.length)?CATS[ci][0]:'business';
   }
@@ -1031,11 +1035,13 @@ async function addSkill(){
 }
 async function skillMenu(id){
   const s=skillById(id); if(!s) return;
-  const c=prompt(s.name+' \u00b7 '+catName(s.cat)+'\\n\\n1 = Rename\\n2 = Change category\\n3 = Delete\\n\\nType 1-3:');
+  const c=prompt(s.name+' \u00b7 '+catName(s.cat)+' \u00b7 target '+goalOf(s)+'\n\n1 = Rename\n2 = Change category\n3 = Set target\n4 = Delete\n\nType 1, 2, 3 or 4:');
   if(c==='1'){ const nm=prompt('New name:',s.name); if(nm&&nm.trim()) s.name=nm.trim(); }
-  else if(c==='2'){ const menu=CATS.map((x,i)=>(i+1)+' = '+x[1]).join('\\n'); const pick=prompt('Move to which category?\\n\\n'+menu,'');
+  else if(c==='2'){ const menu=CATS.map((x,i)=>(i+1)+' = '+x[1]).join('\n'); const pick=prompt('Move to which category?\n\n'+menu,'');
     const ci=Number(pick)-1; if(ci>=0&&ci<CATS.length) s.cat=CATS[ci][0]; }
-  else if(c==='3'){ if(confirm('Delete '+s.name+' and all its takes? This cannot be undone.')){ state.skills=state.skills.filter(x=>x.id!==id); closeSheet(); } }
+  else if(c==='3'){ const cur=repCount(s); const v=prompt('How many takes to master '+s.name+'?\n\n100 is the default. Pick what is realistic.'+(cur>0?'\n\nYou have logged '+cur+' already, so it cannot go below that.':''), goalOf(s));
+    const g=Math.round(Number(v)); if(g>=1&&g>=cur){ s.goal=g; } else if(g>0&&g<cur){ alert('You have already logged '+cur+' takes. Set at least '+cur+'.'); } }
+  else if(c==='4'){ if(confirm('Delete '+s.name+' and all its takes? This cannot be undone.')){ state.skills=state.skills.filter(x=>x.id!==id); closeSheet(); } }
   else return;
   await save(); render(); if(openSkill) renderSheet();
 }
@@ -1075,7 +1081,7 @@ function makeShareCard(){
   x.fillStyle='rgba(255,255,255,.06)'; x.beginPath(); x.arc(W-60,120,220,0,7); x.fill();
 
   x.textAlign='left';
-  x.fillStyle='#9EC1FF'; x.font=F(900,30); x.letterSpacing='8px'; x.fillText("FATU\\u2019S 100", 72, 120); x.letterSpacing='0px';
+  x.fillStyle='#9EC1FF'; x.font=F(900,30); x.letterSpacing='8px'; x.fillText("FATU\u2019S 100", 72, 120); x.letterSpacing='0px';
   x.fillStyle='#FFFFFF'; x.font=RF(84); x.fillText(rankFor(L.lv), 70, 208);
   x.fillStyle='#BcD6FF'; x.font=F(800,32); x.fillText(`Level ${L.lv}`, 74, 258);
   x.fillStyle='#FFFFFF'; x.font=RF(196); x.fillText(String(totalReps()), 64, 452);
@@ -1086,8 +1092,8 @@ function makeShareCard(){
     [masteredCount(),'skills mastered'],
     [state.skills.filter(s=>repCount(s)>0).length,'skills started'],
     [streak(),'day streak'],
-    [closest?closest.name:'\\u2013','closest to 100'],
-    [closest?repCount(closest)+'/'+goalOf(closest):'\\u2013','its takes']
+    [closest?closest.name:'\u2013','closest to 100'],
+    [closest?repCount(closest)+'/'+goalOf(closest):'\u2013','its takes']
   ];
   const gx=64,gap=26,gw=(W-gx*2-gap)/2,gh=150,gyTop=GT+46;
   stats.forEach((st,i)=>{const col=i%2,row=Math.floor(i/2);const bx=gx+col*(gw+gap),by=gyTop+row*(gh+gap);
