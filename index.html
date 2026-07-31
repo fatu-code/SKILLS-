@@ -195,6 +195,30 @@
   .ladderinfo{display:flex;flex-direction:column;gap:12px;margin-top:12px}
   .linfo b{display:block;font-size:15px;font-weight:800;color:var(--ink)}
   .linfo span{display:block;font-size:13px;font-weight:700;color:var(--muted);line-height:1.5;margin-top:3px}
+  /* play: wheel */
+  .wheelcard{background:linear-gradient(150deg,#123A66,#081F3A);color:#fff;border-radius:22px;padding:22px;margin-bottom:12px;text-align:center}
+  .wheelwrap{position:relative;width:230px;height:230px;margin:8px auto 18px}
+  .wheel{width:230px;height:230px;filter:drop-shadow(0 8px 20px rgba(0,0,0,.3))}
+  .wheelpin{position:absolute;top:-4px;left:50%;transform:translateX(-50%);z-index:2;
+    width:0;height:0;border-left:11px solid transparent;border-right:11px solid transparent;border-top:20px solid var(--gold)}
+  .playstash{display:flex;justify-content:center;gap:20px;margin-top:14px;font-size:13px;font-weight:800;color:var(--sky)}
+  .chestcard{border-color:var(--gold);background:linear-gradient(180deg,#fff,#FFF8EC)}
+  /* scratch */
+  .scratch{border-color:var(--sky)}
+  /* dice */
+  .dice.ddone{background:var(--wash);border-color:var(--soft)}
+  .dieface{width:46px;height:46px;flex-shrink:0;border-radius:13px;background:var(--wash);display:flex;align-items:center;justify-content:center;font-size:26px;color:var(--go);line-height:1}
+  .dice.ddone .dieface{background:var(--go);color:#fff}
+  /* login ladder */
+  .ladder{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-top:6px}
+  .lad{border:1.5px solid var(--line);border-radius:11px;padding:9px 2px;text-align:center;background:var(--paper);position:relative}
+  .lad span{display:block;font-size:9px;font-weight:800;color:var(--muted);letter-spacing:.02em}
+  .lad b{display:block;font-family:'Varela Round',sans-serif;font-size:14px;color:var(--muted);margin-top:2px}
+  .lad.on{background:var(--wash);border-color:var(--soft)}
+  .lad.on b{color:var(--go)}
+  .lad.today{border-color:var(--go);box-shadow:0 0 0 3px var(--wash)}
+  .lad.today b{color:var(--go)}
+  .lad em{display:block;font-style:normal;font-size:8px;font-weight:800;color:var(--go);margin-top:2px;text-transform:uppercase;letter-spacing:.05em}
   /* focus card */
   .focuscard{background:linear-gradient(150deg,#1B4E86,#0B2A4A);color:#fff;border-radius:22px;padding:22px;margin-bottom:12px;position:relative;overflow:hidden}
   .focuscard:after{content:'';position:absolute;right:-40px;bottom:-50px;width:180px;height:180px;border-radius:50%;background:rgba(37,99,235,.18)}
@@ -288,7 +312,7 @@
   /* bottom nav */
   .bottom{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(255,255,255,.95);backdrop-filter:blur(16px);
     border-top:1.5px solid var(--line);padding:7px 6px calc(7px + env(safe-area-inset-bottom))}
-  .bottominner{max-width:620px;margin:0 auto;display:grid;grid-template-columns:repeat(3,1fr)}
+  .bottominner{max-width:620px;margin:0 auto;display:grid;grid-template-columns:repeat(4,1fr)}
   .nb{background:none;display:flex;flex-direction:column;align-items:center;gap:5px;padding:8px 4px;color:var(--park);
     font-size:11px;letter-spacing:.03em;font-weight:800;border-radius:14px}
   .nb svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
@@ -309,6 +333,7 @@
 <div class="app">
   <section class="page" id="p-home"></section>
   <section class="page" id="p-skills" hidden></section>
+  <section class="page" id="p-play" hidden></section>
   <section class="page" id="p-prog" hidden></section>
 </div>
 
@@ -319,6 +344,7 @@
 <nav class="bottom"><div class="bottominner">
   <button class="nb on" data-go="home"><svg viewBox="0 0 24 24"><path d="M3 10.5 12 4l9 6.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>Home</button>
   <button class="nb" data-go="skills"><svg viewBox="0 0 24 24"><path d="M12 3l2.5 5 5.5.8-4 3.9 1 5.5L12 21l-5 2.6 1-5.5-4-3.9 5.5-.8z"/></svg>Skills</button>
+  <button class="nb" data-go="play"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3"/><circle cx="12" cy="12" r="2.5"/></svg>Play</button>
   <button class="nb" data-go="prog"><svg viewBox="0 0 24 24"><path d="M4 19V9M10 19V5M16 19v-7M22 19H3"/></svg>Progress</button>
 </div></nav>
 
@@ -391,7 +417,7 @@ function seedSkills(){
   return seed.map(([n,cat])=>({id:uid(),name:n,cat,reps:[],status:'active',created:Date.now()}));
 }
 
-let state={skills:[],seen:[],cfg:{weekGoal:7},focus:null,lastSeen:null,bonusPts:0};
+let state={skills:[],seen:[],cfg:{weekGoal:7},focus:null,lastSeen:null,bonusPts:0,play:{lastSpin:null,freezes:0,chests:0,loginDay:0,loginDate:null,lastScratch:null,lastDice:null,diceChallenge:null,doubleNext:false}};
 let page='home', openSkill=null, openCat=null;
 let draft={rating:0, note:''};   // rep being logged
 
@@ -501,11 +527,12 @@ function chainDays(n){
 /* ================= storage io ================= */
 async function load(){
   try{const raw=await store.get(KEY);
-    if(raw){const s=JSON.parse(raw); state.skills=s.skills||[]; state.seen=s.seen||[]; state.cfg=Object.assign({weekGoal:7},s.cfg||{}); state.focus=s.focus||null; state.lastSeen=s.lastSeen||null; state.bonusPts=s.bonusPts||0;}
+    if(raw){const s=JSON.parse(raw); state.skills=s.skills||[]; state.seen=s.seen||[]; state.cfg=Object.assign({weekGoal:7},s.cfg||{}); state.focus=s.focus||null; state.lastSeen=s.lastSeen||null; state.bonusPts=s.bonusPts||0; state.play=Object.assign({lastSpin:null,freezes:0,chests:0,loginDay:0,loginDate:null,lastScratch:null,lastDice:null,diceChallenge:null,doubleNext:false}, s.play||{});}
   }catch(e){}
   try{ migrate(); }catch(e){ console.error('migrate',e); }
   if(!state.skills.length) state.skills=seedSkills();
   try{ sessionAway = daysAway(); }catch(e){ sessionAway=0; }
+  try{ checkLogin(); }catch(e){ console.error('login',e); }
   if(state.lastSeen!==todayStr()){ state.lastSeen=todayStr(); save(); }
   try{ render(); }catch(e){ console.error('render',e); }
   try{ checkBadges(true); }catch(e){ console.error('badges',e); }
@@ -765,8 +792,7 @@ function focusCard(){
 function homePage(){
   const L=overallLevel();
   const f=focusSkill();
-  // other skills, excluding the focus, most-progressed first
-  const others=[...state.skills].filter(s=>!f||s.id!==f.id).sort((a,b)=>repCount(b)-repCount(a)).slice(0,5);
+  const others=[...state.skills].filter(s=>!f||s.id!==f.id).sort((a,b)=>repCount(b)-repCount(a)).slice(0,6);
   return `
   ${comebackBanner()}
   ${focusCard()}
@@ -779,7 +805,6 @@ function homePage(){
   </div>
 
   <div style="height:12px"></div>
-  ${questCard()}
   ${missionsCard()}
   ${weeklyCard()}
   ${chainCard()}
@@ -911,6 +936,219 @@ function beforeAfterCard(){
       ${after>before?`<div class="note" style="margin-top:12px">You improved by ${((after-before)).toFixed(1)} points from your first takes to your last. Proof it worked.</div>`:''}
     </div>`;
   }).join('');
+}
+
+// ================= PLAY: the fun tab =================
+const SPIN_PRIZES=[
+  {label:'+30 pts', kind:'pts', val:30, weight:22},
+  {label:'+50 pts', kind:'pts', val:50, weight:14},
+  {label:'+100 pts', kind:'pts', val:100, weight:6},
+  {label:'Streak freeze', kind:'freeze', val:1, weight:14},
+  {label:'Mystery chest', kind:'chest', val:1, weight:12},
+  {label:'Double next take', kind:'double', val:1, weight:12},
+  {label:'+15 pts', kind:'pts', val:15, weight:16},
+  {label:'Jackpot 200', kind:'pts', val:200, weight:4}
+];
+function canSpin(){ return state.play.lastSpin!==todayStr(); }
+function pickPrize(){
+  const total=SPIN_PRIZES.reduce((a,p)=>a+p.weight,0);
+  let r=Math.random()*total;
+  for(const p of SPIN_PRIZES){ if((r-=p.weight)<=0) return p; }
+  return SPIN_PRIZES[0];
+}
+
+function playPage(){
+  const L=overallLevel();
+  const spun=!canSpin();
+  return `
+  <div class="phead"><h1>Play</h1><p>Your daily fun, and every reason to keep the streak alive.</p></div>
+
+  <div class="wheelcard">
+    <div class="cap" style="color:var(--sky)">Daily spin</div>
+    <div class="wheelwrap">
+      <div class="wheelpin"></div>
+      <svg class="wheel" id="wheel" viewBox="0 0 200 200">${wheelSVG()}</svg>
+    </div>
+    <button class="bigbtn ${spun?'':'go'}" id="spinBtn" ${spun?'disabled':''}>${spun?'Come back tomorrow':'Spin the wheel'}</button>
+    <div class="playstash">
+      <span>&#10052;&#65039; ${state.play.freezes} freeze${state.play.freezes===1?'':'s'}</span>
+      <span>&#127873; ${state.play.chests} chest${state.play.chests===1?'':'s'}</span>
+    </div>
+  </div>
+
+  ${state.play.chests>0?`<div class="card chestcard">
+    <div class="cap">Mystery chests</div>
+    <p class="lede" style="margin-top:0">You have ${state.play.chests} unopened. Tap to see what is inside.</p>
+    <button class="bigbtn" data-openchest="1">Open a chest &nbsp;&#127873;</button>
+  </div>`:''}
+
+  ${scratchCard()}
+  ${diceCard()}
+  ${loginLadderCard()}`;
+}
+
+function wheelSVG(){
+  const n=SPIN_PRIZES.length, cx=100, cy=100, r=94;
+  const cols=['#2563EB','#0B2A4A','#3E6BB8','#1B4E86','#2563EB','#0B2A4A','#3E6BB8','#1B4E86'];
+  let out='';
+  for(let i=0;i<n;i++){
+    const a0=(i/n)*2*Math.PI - Math.PI/2, a1=((i+1)/n)*2*Math.PI - Math.PI/2;
+    const x0=cx+r*Math.cos(a0), y0=cy+r*Math.sin(a0), x1=cx+r*Math.cos(a1), y1=cy+r*Math.sin(a1);
+    out+=`<path d="M${cx} ${cy} L${x0.toFixed(1)} ${y0.toFixed(1)} A${r} ${r} 0 0 1 ${x1.toFixed(1)} ${y1.toFixed(1)} Z" fill="${cols[i%cols.length]}" stroke="#fff" stroke-width="1"/>`;
+    // label
+    const am=(a0+a1)/2, lr=r*0.62;
+    const lx=cx+lr*Math.cos(am), ly=cy+lr*Math.sin(am);
+    const short=SPIN_PRIZES[i].kind==='pts'?('+'+SPIN_PRIZES[i].val):SPIN_PRIZES[i].kind==='freeze'?'\u2744':SPIN_PRIZES[i].kind==='chest'?'\u{1F381}':'x2';
+    out+=`<text x="${lx.toFixed(1)}" y="${ly.toFixed(1)}" fill="#fff" font-size="11" font-weight="800" text-anchor="middle" dominant-baseline="middle" transform="rotate(${(am*180/Math.PI+90).toFixed(0)} ${lx.toFixed(1)} ${ly.toFixed(1)})">${short}</text>`;
+  }
+  out+=`<circle cx="100" cy="100" r="16" fill="#fff"/><circle cx="100" cy="100" r="16" fill="none" stroke="var(--go)" stroke-width="2"/>`;
+  return out;
+}
+
+async function doSpin(){
+  if(!canSpin()) return;
+  const prize=pickPrize();
+  const idx=SPIN_PRIZES.indexOf(prize);
+  const n=SPIN_PRIZES.length;
+  // rotate so the chosen wedge lands under the top pin (pin at -90deg / top)
+  const perSlice=360/n;
+  const target=360*6 - (idx*perSlice + perSlice/2);   // several full turns + land on wedge center
+  const wheel=document.getElementById('wheel');
+  const btn=document.getElementById('spinBtn');
+  if(btn){ btn.disabled=true; btn.textContent='Spinning\u2026'; }
+  if(wheel){ wheel.style.transition='transform 3.2s cubic-bezier(.15,.9,.2,1)'; wheel.style.transform=`rotate(${target}deg)`; }
+  state.play.lastSpin=todayStr();
+  setTimeout(async()=>{
+    await applyPrize(prize);
+    await save(); render();
+    toast('You won: '+prize.label, spinFlavor(prize));
+    confetti(prize.val>=100 || prize.kind!=='pts');
+  }, 3300);
+}
+function spinFlavor(p){
+  if(p.kind==='pts') return 'Points added to your total.';
+  if(p.kind==='freeze') return 'Banked. Spend it to save a broken streak.';
+  if(p.kind==='chest') return 'A mystery chest is waiting to be opened.';
+  if(p.kind==='double') return 'Your next take is worth double points.';
+  return '';
+}
+async function applyPrize(p){
+  if(p.kind==='pts') state.bonusPts=(state.bonusPts||0)+p.val;
+  else if(p.kind==='freeze') state.play.freezes+=1;
+  else if(p.kind==='chest') state.play.chests+=1;
+  else if(p.kind==='double') state.play.doubleNext=true;
+}
+
+// ---- daily login ladder (7 day) ----
+const LOGIN_LADDER=[10,15,20,30,40,60,100];  // points, day 7 biggest
+function checkLogin(){
+  const t=todayStr();
+  if(state.play.loginDate===t) return;         // already counted today
+  const y=iso(new Date(Date.now()-86400000));
+  if(state.play.loginDate===y) state.play.loginDay=(state.play.loginDay||0)+1; // consecutive
+  else state.play.loginDay=1;                    // reset
+  if(state.play.loginDay>7) state.play.loginDay=1;
+  state.play.loginDate=t;
+  const reward=LOGIN_LADDER[state.play.loginDay-1];
+  state.bonusPts=(state.bonusPts||0)+reward;
+  loginRewardToday=reward;
+  save();
+}
+let loginRewardToday=0;
+function loginLadderCard(){
+  const day=state.play.loginDay||1;
+  const cells=LOGIN_LADDER.map((pts,i)=>{
+    const dn=i+1, done=dn<=day;
+    return `<div class="lad ${done?'on':''} ${dn===day?'today':''}">
+      <span>Day ${dn}</span><b>+${pts}</b>${dn===day?'<em>today</em>':''}</div>`;
+  }).join('');
+  return `<div class="card">
+    <div class="cap">Daily login streak</div>
+    <p class="lede" style="margin-top:0">Show up every day. The reward grows. Miss a day and it starts over.</p>
+    <div class="ladder">${cells}</div>
+  </div>`;
+}
+
+// ---- scratch card (daily) ----
+const SCRATCH_PRIZES=[15,20,25,30,40,50,'freeze','chest'];
+function canScratch(){ return state.play.lastScratch!==todayStr(); }
+function scratchCard(){
+  const done=!canScratch();
+  return `<div class="card scratch">
+    <div class="cap">Daily scratch card</div>
+    ${done?`<p class="lede" style="margin-top:0">Scratched today. A fresh one tomorrow.</p>`:
+      `<p class="lede" style="margin-top:0">One scratch a day. Reveal your surprise.</p>
+       <button class="bigbtn go" data-scratch="1" style="margin-top:8px">Scratch to reveal</button>`}
+  </div>`;
+}
+async function doScratch(){
+  if(!canScratch()) return;
+  const prize=SCRATCH_PRIZES[Math.floor(Math.random()*SCRATCH_PRIZES.length)];
+  state.play.lastScratch=todayStr();
+  let msg;
+  if(prize==='freeze'){ state.play.freezes+=1; msg='A streak freeze'; }
+  else if(prize==='chest'){ state.play.chests+=1; msg='A mystery chest'; }
+  else { state.bonusPts=(state.bonusPts||0)+prize; msg='+'+prize+' points'; }
+  await save(); render();
+  toast('Scratched: '+msg,'Nice. See you tomorrow for another.');
+  confetti(prize==='chest'||prize==='freeze'||Number(prize)>=40);
+}
+
+// ---- dice roll challenge (daily) ----
+const DICE_CHALLENGES=[
+  {text:'Log 2 takes on any skill today', pts:30, check:()=>repsToday()>=2},
+  {text:'Land one 5-star take today', pts:35, check:()=>state.skills.some(s=>s.reps.some(r=>r.day===todayStr()&&r.rating===5))},
+  {text:'Add a note to a take today', pts:25, check:()=>state.skills.some(s=>s.reps.some(r=>r.day===todayStr()&&r.note))},
+  {text:'Touch 2 different skills today', pts:35, check:()=>skillsTouchedToday()>=2},
+  {text:'Log 3 takes on your focus skill', pts:45, check:()=>{const f=focusSkill();return f&&f.reps.filter(r=>r.day===todayStr()).length>=3;}},
+  {text:'Log a single take today', pts:20, check:()=>repsToday()>=1}
+];
+function canRollDice(){ return state.play.lastDice!==todayStr(); }
+function diceCard(){
+  const ch=state.play.diceChallenge;
+  const rolledToday=!canRollDice();
+  if(rolledToday && ch){
+    const done=DICE_CHALLENGES[ch.idx] && DICE_CHALLENGES[ch.idx].check();
+    return `<div class="card dice ${done?'ddone':''}">
+      <div class="cap">Today\u2019s dice challenge</div>
+      <div style="display:flex;align-items:center;gap:13px;margin-top:2px">
+        <div class="dieface">${done?'&#10003;':ch.face}</div>
+        <div style="flex:1"><b style="font-size:15px;font-weight:800">${ch.text}</b>
+          <span class="lede" style="display:block">${done?'Done! +'+ch.pts+' earned.':'+'+ch.pts+' when you finish it'}</span></div>
+      </div>
+    </div>`;
+  }
+  return `<div class="card dice">
+    <div class="cap">Dice challenge</div>
+    <p class="lede" style="margin-top:0">Roll for a random challenge to chase today.</p>
+    <button class="bigbtn go" data-rolldice="1" style="margin-top:8px">Roll the dice &nbsp;&#127922;</button>
+  </div>`;
+}
+const DIE_FACES=['&#9856;','&#9857;','&#9858;','&#9859;','&#9860;','&#9861;'];
+async function rollDice(){
+  if(!canRollDice()) return;
+  const idx=Math.floor(Math.random()*DICE_CHALLENGES.length);
+  const ch=DICE_CHALLENGES[idx];
+  state.play.lastDice=todayStr();
+  state.play.diceChallenge={idx, text:ch.text, pts:ch.pts, face:DIE_FACES[Math.floor(Math.random()*6)]};
+  await save(); render();
+  toast('You rolled a challenge','+'+ch.pts+' points: '+ch.text);
+}
+
+const CHEST_LOOT=[
+  {label:'+40 pts', f:()=>state.bonusPts=(state.bonusPts||0)+40},
+  {label:'+75 pts', f:()=>state.bonusPts=(state.bonusPts||0)+75},
+  {label:'A streak freeze', f:()=>state.play.freezes+=1},
+  {label:'+120 pts', f:()=>state.bonusPts=(state.bonusPts||0)+120},
+  {label:'Double next take', f:()=>state.play.doubleNext=true}
+];
+async function openChest(){
+  if(state.play.chests<=0) return;
+  state.play.chests-=1;
+  const loot=CHEST_LOOT[Math.floor(Math.random()*CHEST_LOOT.length)];
+  loot.f(); await save(); render();
+  toast('Chest opened: '+loot.label,'A little something for showing up.');
+  confetti(true);
 }
 
 function progPage(){
@@ -1187,11 +1425,19 @@ async function logRep(id){
   // comeback bonus: first take after a 3+ day gap is worth double
   const backBonus = sessionAway>=3;
   if(backBonus) gained*=2;
+  // spin reward: double the next take
+  const dbl = state.play&&state.play.doubleNext;
+  if(dbl){ gained*=2; state.play.doubleNext=false; }
   // surprise: ~1 in 12 takes is a lucky take (bonus points), except when a bigger win is already happening
   const lucky = !backBonus && Math.random()<0.085;
   if(lucky) gained+=25;
   const baseTake=takePointsFor(s,n);
   if(gained>baseTake) state.bonusPts=(state.bonusPts||0)+(gained-baseTake);
+  // dice challenge: award once when its condition is first met
+  const dc=state.play&&state.play.diceChallenge;
+  if(dc && !dc.claimed && DICE_CHALLENGES[dc.idx] && DICE_CHALLENGES[dc.idx].check()){
+    dc.claimed=true; state.bonusPts=(state.bonusPts||0)+dc.pts; setTimeout(()=>toast('Dice challenge done!','+'+dc.pts+' points. '+dc.text),900);
+  }
   s.reps.push({n, rating, note:(draft.note||'').trim(), at:Date.now(), day:todayStr()});
   state.lastSeen=todayStr();
   const after=stageOfN(n,goal).idx;
@@ -1241,9 +1487,10 @@ function render(){
   const safe=(fn,name)=>{ try{ return fn(); }catch(e){ console.error(name,e); return `<div class="card"><p class="lede" style="margin:0">Something hiccuped loading this screen. Close and reopen the app.</p></div>`; } };
   document.getElementById('p-home').innerHTML = page==='home'?safe(homePage,'home'):'';
   document.getElementById('p-skills').innerHTML = page==='skills'?safe(()=>openCat?catPage(openCat):skillsPage(),'skills'):'';
+  document.getElementById('p-play').innerHTML = page==='play'?safe(playPage,'play'):'';
   document.getElementById('p-prog').innerHTML = page==='prog'?safe(progPage,'prog'):'';
   if(page==='prog') countUpPoints();
-  ['home','skills','prog'].forEach(p=>document.getElementById('p-'+p).hidden = page!==p);
+  ['home','skills','play','prog'].forEach(p=>document.getElementById('p-'+p).hidden = page!==p);
   document.querySelectorAll('.nb').forEach(b=>b.classList.toggle('on',b.dataset.go===page));
   wire();
 }
@@ -1267,6 +1514,10 @@ function wire(){
     const n=Number(v); if(n>=1){ state.cfg=state.cfg||{}; state.cfg.weekGoal=Math.round(n); await save(); render(); } };
   document.querySelectorAll('[data-pickfocus]').forEach(b=>b.onclick=pickFocus);
   const fl=document.querySelector('[data-focuslog]'); if(fl) fl.onclick=()=>openSkillSheet(fl.dataset.focuslog);
+  const spin=document.getElementById('spinBtn'); if(spin && canSpin()) spin.onclick=doSpin;
+  const oc=document.querySelector('[data-openchest]'); if(oc) oc.onclick=openChest;
+  const scr=document.querySelector('[data-scratch]'); if(scr) scr.onclick=doScratch;
+  const rd=document.querySelector('[data-rolldice]'); if(rd) rd.onclick=rollDice;
 }
 
 // choose the one skill to focus on
@@ -1404,7 +1655,7 @@ function importData(){
   inp.onchange=()=>{const f=inp.files[0];if(!f)return;const r=new FileReader();
     r.onload=async()=>{try{const d=JSON.parse(r.result);if(!d||!Array.isArray(d.skills))throw 0;
       if(!confirm('Replace everything with this backup?'))return;
-      state.skills=d.skills; state.seen=d.seen||[]; state.cfg=Object.assign({weekGoal:7},d.cfg||{}); state.focus=d.focus||null; state.lastSeen=d.lastSeen||null; state.bonusPts=d.bonusPts||0; await save(); page='home'; render(); toast('Restored','Your climb is back.');
+      state.skills=d.skills; state.seen=d.seen||[]; state.cfg=Object.assign({weekGoal:7},d.cfg||{}); state.focus=d.focus||null; state.lastSeen=d.lastSeen||null; state.bonusPts=d.bonusPts||0; state.play=Object.assign({lastSpin:null,freezes:0,chests:0,loginDay:0,loginDate:null,lastScratch:null,lastDice:null,diceChallenge:null,doubleNext:false}, d.play||{}); await save(); page='home'; render(); toast('Restored','Your climb is back.');
     }catch(e){alert('That file could not be read.');}};
     r.readAsText(f);};
   inp.click();
