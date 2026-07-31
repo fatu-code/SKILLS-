@@ -195,6 +195,30 @@
   .ladderinfo{display:flex;flex-direction:column;gap:12px;margin-top:12px}
   .linfo b{display:block;font-size:15px;font-weight:800;color:var(--ink)}
   .linfo span{display:block;font-size:13px;font-weight:700;color:var(--muted);line-height:1.5;margin-top:3px}
+  .timeline{display:flex;flex-direction:column;gap:2px}
+  .tl{display:flex;gap:14px;padding:10px 0;position:relative}
+  .tl:not(:last-child):before{content:'';position:absolute;left:17px;top:38px;bottom:-2px;width:2px;background:var(--wash)}
+  .tldot{width:36px;height:36px;flex-shrink:0;border-radius:50%;background:var(--wash);display:flex;align-items:center;justify-content:center;font-size:15px;color:var(--go);z-index:1}
+  .tl.mastery .tldot{background:var(--gold);color:#fff}
+  .tl.stage .tldot{background:var(--go);color:#fff}
+  .tl.total .tldot{background:var(--ink);color:#fff}
+  .tlc{flex:1;min-width:0;padding-top:2px}
+  .tlc b{display:block;font-size:14.5px;font-weight:800;line-height:1.3}
+  .tlc span{display:block;font-size:12px;font-weight:600;color:var(--muted);margin-top:2px}
+  .bagrid{display:flex;align-items:stretch;gap:10px;margin-top:6px}
+  .ba{flex:1;background:var(--paper);border:1.5px solid var(--line);border-radius:14px;padding:14px}
+  .ba span{font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+  .ba b{display:block;font-family:'Varela Round',sans-serif;font-size:26px;margin-top:4px}
+  .ba b.go{color:var(--go)}
+  .ba em{display:block;font-style:normal;font-size:11.5px;font-weight:600;color:var(--muted);margin-top:6px;line-height:1.4}
+  .baarrow{display:flex;align-items:center;color:var(--muted);font-size:20px;font-weight:800}
+  .ptshero{background:linear-gradient(150deg,#123A66,#081F3A);color:#fff;border-radius:22px;padding:22px;margin-bottom:12px;position:relative;overflow:hidden}
+  .ptshero:after{content:'';position:absolute;right:-30px;top:-30px;width:170px;height:170px;border-radius:50%;background:rgba(37,99,235,.16)}
+  .ptsnum{font-family:'Varela Round',sans-serif;font-size:52px;line-height:1;letter-spacing:-.01em;position:relative}
+  .ptssub{font-size:12.5px;font-weight:700;color:var(--sky);margin-top:8px;position:relative}
+  .ptsbreak{display:flex;gap:16px;margin-top:16px;position:relative;flex-wrap:wrap}
+  .ptsbreak span{font-size:12px;font-weight:700;color:rgba(255,255,255,.72)}
+  .ptsbreak b{font-family:'Varela Round',sans-serif;color:#fff;font-size:14px;margin-right:2px}
   .rank{display:flex;align-items:center;gap:16px}
   .rank .lv{width:74px;height:74px;flex-shrink:0;border-radius:22px;background:var(--ink);color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center}
   .rank .lv b{font-family:'Varela Round',sans-serif;font-size:29px;line-height:1}
@@ -224,6 +248,13 @@
   .toast{position:fixed;left:16px;right:16px;bottom:96px;z-index:60;max-width:588px;margin:0 auto;background:var(--ink);color:#fff;
     border-radius:18px;padding:16px 18px;box-shadow:0 12px 34px rgba(11,42,74,.3);animation:pop .35s cubic-bezier(.2,.9,.25,1)}
   .toast[hidden]{display:none}
+  .ptspop{position:fixed;left:50%;top:46%;transform:translateX(-50%);z-index:75;pointer-events:none;
+    font-family:'Varela Round',sans-serif;font-size:44px;color:var(--go);font-weight:400;
+    text-shadow:0 2px 12px rgba(37,99,235,.35);animation:ptsrise 1.3s cubic-bezier(.2,.7,.3,1) forwards}
+  @keyframes ptsrise{0%{opacity:0;transform:translateX(-50%) translateY(10px) scale(.7)}
+    18%{opacity:1;transform:translateX(-50%) translateY(0) scale(1.1)}
+    32%{transform:translateX(-50%) translateY(0) scale(1)}
+    100%{opacity:0;transform:translateX(-50%) translateY(-60px) scale(1)}}
   .confetti{position:fixed;inset:0;z-index:70;pointer-events:none;overflow:hidden}
   .confetti i{position:absolute;top:32%;display:block;opacity:0;animation-name:fall;animation-timing-function:cubic-bezier(.25,.6,.4,1);animation-fill-mode:forwards}
   @keyframes fall{0%{opacity:1;transform:translate(0,0) rotate(0)}100%{opacity:0;transform:translate(var(--dx),64vh) rotate(var(--rot))}}
@@ -368,7 +399,17 @@ function skillPoints(s){
   if(repCount(s)>=goalOf(s)) p+=150;
   return p;
 }
-const totalPoints=()=>state.skills.reduce((a,s)=>a+skillPoints(s),0);
+function badgePoints(){ try{ return badgeState().filter(b=>b.got).reduce((a,b)=>a+(b.pts||0),0); }catch(e){ return 0; } }
+const totalPoints=()=>state.skills.reduce((a,s)=>a+skillPoints(s),0)+badgePoints();
+// the exact points a single take earns right now (for the +N pop): base 10, +40 if it crosses a stage, +150 if it masters
+function takePointsFor(s, n){
+  const goal=goalOf(s);
+  let p=10;
+  const before=stageOfN(n-1,goal).idx, after=stageOfN(n,goal).idx;
+  if(after>before && before>=0) p+=40;   // crossing between real stages, not the very first take
+  if(n>=goal) p+=150;
+  return p;
+}
 
 // ---- category aggregates ----
 const catReps=id=>state.skills.filter(s=>s.cat===id).reduce((a,s)=>a+repCount(s),0);
@@ -693,12 +734,97 @@ function catPage(catId){
 
 function pageHead(title,sub){return `<div class="phead"><h1>${title}</h1><p>${sub}</p></div>`;}
 
+// ================= THE STORY =================
+// reconstruct the journey as dated milestones from every take's timestamp
+function buildStory(){
+  const events=[];
+  state.skills.forEach(sk=>{
+    const goal=goalOf(sk);
+    const reps=[...sk.reps].sort((a,b)=>a.at-b.at);
+    let bestSoFar=0;
+    reps.forEach((r,i)=>{
+      const n=i+1;
+      // first ever take in this skill
+      if(n===1) events.push({at:r.at, kind:'first', skill:sk.name, text:'Started '+sk.name, sub:'The first take. The hardest one.'});
+      // stage crossings
+      const before=stageOfN(n-1,goal).idx, after=stageOfN(n,goal).idx;
+      if(after>before && after>0 && n<goal) events.push({at:r.at, kind:'stage', skill:sk.name, text:sk.name+' reached '+STAGES[after].name, sub:'Take '+n+'. A new level.'});
+      // mastery
+      if(n>=goal) events.push({at:r.at, kind:'mastery', skill:sk.name, text:'Mastered '+sk.name+' \u2b50', sub:goal+' takes. It is yours forever.'});
+      // personal best rating (once it climbs past 3 prior)
+      if(r.rating && i>=3 && r.rating>bestSoFar && r.rating>=4) events.push({at:r.at, kind:'best', skill:sk.name, text:'Best '+sk.name+' yet', sub:'Rated '+r.rating+'/5. You are getting good.'});
+      if(r.rating>bestSoFar) bestSoFar=r.rating;
+    });
+  });
+  // overall total-take milestones
+  const allByTime=state.skills.flatMap(s=>s.reps.map(r=>({at:r.at}))).sort((a,b)=>a.at-b.at);
+  [10,50,100,250,500,1000].forEach(m=>{ if(allByTime.length>=m) events.push({at:allByTime[m-1].at, kind:'total', text:m+' takes total', sub:'Across every skill. Relentless.'}); });
+  events.sort((a,b)=>b.at-a.at);  // newest first
+  return events;
+}
+function storyIcon(kind){
+  return kind==='mastery'?'\u2b50':kind==='stage'?'\u25b2':kind==='first'?'\u25cf':kind==='best'?'\u2605':kind==='total'?'\u26a1':'\u25cf';
+}
+function storyCard(){
+  const ev=buildStory();
+  if(!ev.length) return `<div class="card"><div class="cap">Your story</div>
+    <p class="lede" style="margin:0">Log your first take and your story begins here, every milestone, in order.</p></div>`;
+  const show=ev.slice(0,14);
+  return `<div class="card">
+    <div class="cap">Your story</div>
+    <p class="lede" style="margin-top:0;margin-bottom:14px">Every milestone, newest first. This is the shape of you getting good.</p>
+    <div class="timeline">
+      ${show.map(e=>`<div class="tl ${e.kind}">
+        <div class="tldot">${storyIcon(e.kind)}</div>
+        <div class="tlc"><b>${e.text}</b><span>${shortDate(e.at)} \u00b7 ${e.sub}</span></div>
+      </div>`).join('')}
+    </div>
+    ${ev.length>14?`<p class="lede" style="margin:12px 0 0;text-align:center">and ${ev.length-14} more moments</p>`:''}
+  </div>`;
+}
+// before / after for mastered skills
+function beforeAfterCard(){
+  const mastered=state.skills.filter(s=>repCount(s)>=goalOf(s) && s.reps.filter(r=>r.rating).length>=4);
+  if(!mastered.length) return '';
+  return mastered.map(sk=>{
+    const rated=sk.reps.filter(r=>r.rating);
+    const firstFew=rated.slice(0,3), lastFew=rated.slice(-3);
+    const avg=a=>a.reduce((x,r)=>x+r.rating,0)/a.length;
+    const before=avg(firstFew), after=avg(lastFew);
+    const firstNote=(sk.reps.find(r=>r.note)||{}).note||'';
+    const lastNote=([...sk.reps].reverse().find(r=>r.note)||{}).note||'';
+    return `<div class="card">
+      <div class="cap">How far you came \u00b7 ${sk.name}</div>
+      <div class="bagrid">
+        <div class="ba"><span>At the start</span><b>${before.toFixed(1)}/5</b>${firstNote?`<em>\u201c${firstNote}\u201d</em>`:''}</div>
+        <div class="baarrow">\u2192</div>
+        <div class="ba"><span>By mastery</span><b class="go">${after.toFixed(1)}/5</b>${lastNote?`<em>\u201c${lastNote}\u201d</em>`:''}</div>
+      </div>
+      ${after>before?`<div class="note" style="margin-top:12px">You improved by ${((after-before)).toFixed(1)} points from your first takes to your last. Proof it worked.</div>`:''}
+    </div>`;
+  }).join('');
+}
+
 function progPage(){
   const L=overallLevel();
   const bs=badgeState(), gotN=bs.filter(b=>b.got).length;
   const ranked=[...state.skills].sort((a,b)=>repCount(b)-repCount(a));
   return `
   <div class="phead"><h1>Progress</h1><p>Your climb across every skill.</p></div>
+
+  <div class="ptshero">
+    <div class="cap" style="color:var(--sky)">Total points</div>
+    <div class="ptsnum" id="ptsNum">${totalPoints().toLocaleString()}</div>
+    <div class="ptssub">Every take, every stage, every badge. Watch it climb.</div>
+    <div class="ptsbreak">
+      <span><b>+10</b> a take</span>
+      <span><b>+40</b> a stage</span>
+      <span><b>+150</b> a mastery</span>
+    </div>
+  </div>
+
+  ${storyCard()}
+  ${beforeAfterCard()}
 
   <div class="card sharecard">
     <div class="cap">Share your climb</div>
@@ -941,6 +1067,7 @@ async function logRep(id){
   const firstToday = !anyRepToday();
   const firstEverInSkill = beforeReps===0;
 
+  const gained=takePointsFor(s,n);
   s.reps.push({n, rating, note:(draft.note||'').trim(), at:Date.now(), day:todayStr()});
   const after=stageOfN(n,goal).idx;
   draft={rating:0,note:''};
@@ -958,8 +1085,22 @@ async function logRep(id){
   else if(firstToday){ toast('First take of the day','Take '+n+' of '+s.name+'. Momentum starts now.'); }
   else { toast('Take '+n+' logged','\u2191 '+s.name+' \u00b7 '+(goal-n)+' to mastery.'); }
 
+  pointsPop(gained);
   confetti(big);
   render(); renderSheet(); checkBadges();
+}
+function countUpPoints(){
+  const el=document.getElementById('ptsNum'); if(!el) return;
+  const target=totalPoints(); const dur=700; const t0=performance.now();
+  function step(t){ const k=Math.min(1,(t-t0)/dur); const e=1-Math.pow(1-k,3);
+    el.textContent=Math.round(target*e).toLocaleString(); if(k<1) requestAnimationFrame(step); }
+  requestAnimationFrame(step);
+}
+// a floating "+N" that rises and fades on every take
+function pointsPop(n){
+  const el=document.createElement('div'); el.className='ptspop'; el.textContent='+'+n;
+  document.body.appendChild(el);
+  setTimeout(()=>el.remove(),1300);
 }
 const anyRepToday=()=>state.skills.some(s=>s.reps.some(r=>r.day===todayStr()));
 
@@ -973,6 +1114,7 @@ function render(){
   document.getElementById('p-home').innerHTML = page==='home'?homePage():'';
   document.getElementById('p-skills').innerHTML = page==='skills'?(openCat?catPage(openCat):skillsPage()):'';
   document.getElementById('p-prog').innerHTML = page==='prog'?progPage():'';
+  if(page==='prog') countUpPoints();
   ['home','skills','prog'].forEach(p=>document.getElementById('p-'+p).hidden = page!==p);
   document.querySelectorAll('.nb').forEach(b=>b.classList.toggle('on',b.dataset.go===page));
   wire();
@@ -1150,8 +1292,8 @@ function makeShareCard(){
     [masteredCount(),'skills mastered'],
     [state.skills.filter(s=>repCount(s)>0).length,'skills started'],
     [streak(),'day streak'],
-    [closest?closest.name:'\u2013','closest to 100'],
-    [closest?repCount(closest)+'/'+goalOf(closest):'\u2013','its takes']
+    [closest?closest.name:'\u2013','closest to mastery'],
+    [closest?repCount(closest)+'/'+goalOf(closest):'\u2013','its progress']
   ];
   const gx=64,gap=26,gw=(W-gx*2-gap)/2,gh=150,gyTop=GT+46;
   stats.forEach((st,i)=>{const col=i%2,row=Math.floor(i/2);const bx=gx+col*(gw+gap),by=gyTop+row*(gh+gap);
