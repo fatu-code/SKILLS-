@@ -625,13 +625,7 @@ function confetti(big){
   setTimeout(()=>wrap.remove(),2200);
 }
 let tt=null;
-function toast(title,sub){const t=document.getElementById('toast');
-  t.innerHTML=`<b>${title}</b>${sub?`<span>${sub}</span>`:''}`;
-  t.hidden=false;
-  clearTimeout(tt);
-  tt=setTimeout(()=>{t.hidden=true;},3200);
-  t.onclick=()=>{clearTimeout(tt);t.hidden=true;};   // tap to dismiss instantly
-}
+function toast(title,sub){const t=document.getElementById('toast');t.innerHTML=`<b>${title}</b><span>${sub}</span>`;t.hidden=false;clearTimeout(tt);tt=setTimeout(()=>t.hidden=true,3600);}
 
 /* ================= pages ================= */
 function stageBar(reps,goal){
@@ -1056,6 +1050,14 @@ function openSkillSheet(id){
   document.getElementById('scrim').hidden=false;
 }
 function closeSheet(){ openSkill=null; document.getElementById('sheet').hidden=true; document.getElementById('scrim').hidden=true; }
+// generic sheet for custom content (focus picker, etc.)
+function openSheet(html){
+  openSkill=null;
+  const box=document.getElementById('sheet');
+  box.innerHTML='<div class="grab"></div>'+html;
+  box.hidden=false;
+  document.getElementById('scrim').hidden=false;
+}
 
 // ---- skill sprint: a short target for this skill by end of week ----
 function sprintBlock(s){
