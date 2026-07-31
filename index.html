@@ -503,11 +503,12 @@ async function load(){
   try{const raw=await store.get(KEY);
     if(raw){const s=JSON.parse(raw); state.skills=s.skills||[]; state.seen=s.seen||[]; state.cfg=Object.assign({weekGoal:7},s.cfg||{}); state.focus=s.focus||null; state.lastSeen=s.lastSeen||null; state.bonusPts=s.bonusPts||0;}
   }catch(e){}
-  migrate();
+  try{ migrate(); }catch(e){ console.error('migrate',e); }
   if(!state.skills.length) state.skills=seedSkills();
-  sessionAway = daysAway();              // remember the gap for this session's welcome-back
+  try{ sessionAway = daysAway(); }catch(e){ sessionAway=0; }
   if(state.lastSeen!==todayStr()){ state.lastSeen=todayStr(); save(); }
-  render(); checkBadges(true);
+  try{ render(); }catch(e){ console.error('render',e); }
+  try{ checkBadges(true); }catch(e){ console.error('badges',e); }
 }
 let sessionAway=0;
 
@@ -1237,9 +1238,10 @@ function render(){
   if(onHome){ gl.textContent=greeting()+', Fatu'; gl.classList.remove('brand'); tr.textContent=longToday(); }
   else { gl.innerHTML='<span class="wordmark"><span class="wm-name">Fatu\u2019s</span><span class="wm-num">100</span></span>'; gl.classList.add('brand'); tr.textContent='Master any skill in 100 takes'; }
 
-  document.getElementById('p-home').innerHTML = page==='home'?homePage():'';
-  document.getElementById('p-skills').innerHTML = page==='skills'?(openCat?catPage(openCat):skillsPage()):'';
-  document.getElementById('p-prog').innerHTML = page==='prog'?progPage():'';
+  const safe=(fn,name)=>{ try{ return fn(); }catch(e){ console.error(name,e); return `<div class="card"><p class="lede" style="margin:0">Something hiccuped loading this screen. Close and reopen the app.</p></div>`; } };
+  document.getElementById('p-home').innerHTML = page==='home'?safe(homePage,'home'):'';
+  document.getElementById('p-skills').innerHTML = page==='skills'?safe(()=>openCat?catPage(openCat):skillsPage(),'skills'):'';
+  document.getElementById('p-prog').innerHTML = page==='prog'?safe(progPage,'prog'):'';
   if(page==='prog') countUpPoints();
   ['home','skills','prog'].forEach(p=>document.getElementById('p-'+p).hidden = page!==p);
   document.querySelectorAll('.nb').forEach(b=>b.classList.toggle('on',b.dataset.go===page));
