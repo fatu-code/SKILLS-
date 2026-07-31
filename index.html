@@ -205,6 +205,18 @@
   .chestcard{border-color:var(--gold);background:linear-gradient(180deg,#fff,#FFF8EC)}
   /* scratch */
   .scratch{border-color:var(--sky)}
+  .scratchbox{position:relative;width:100%;height:96px;border-radius:14px;overflow:hidden;margin-top:10px;background:linear-gradient(150deg,#123A66,#0B2A4A)}
+  .scratchprize{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    font-family:'Varela Round',sans-serif;font-size:30px;color:#fff;letter-spacing:.01em}
+  .scratchcanvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none;cursor:grab}
+  .scratchcanvas:active{cursor:grabbing}
+  .dicestage{display:flex;justify-content:center;margin:14px 0}
+  .bigdie{width:76px;height:76px;border-radius:18px;background:#fff;border:2px solid var(--line);
+    display:flex;align-items:center;justify-content:center;font-size:56px;line-height:1;color:var(--ink);
+    box-shadow:0 6px 18px rgba(11,42,74,.14)}
+  .bigdie.rolling{animation:tumble .3s linear infinite}
+  @keyframes tumble{0%{transform:rotate(0) scale(1)}25%{transform:rotate(-12deg) scale(1.08)}
+    50%{transform:rotate(10deg) scale(1)}75%{transform:rotate(-6deg) scale(1.06)}100%{transform:rotate(0) scale(1)}}
   /* dice */
   .dice.ddone{background:var(--wash);border-color:var(--soft)}
   .dieface{width:46px;height:46px;flex-shrink:0;border-radius:13px;background:var(--wash);display:flex;align-items:center;justify-content:center;font-size:26px;color:var(--go);line-height:1}
@@ -1072,26 +1084,71 @@ function loginLadderCard(){
 // ---- scratch card (daily) ----
 const SCRATCH_PRIZES=[15,20,25,30,40,50,'freeze','chest'];
 function canScratch(){ return state.play.lastScratch!==todayStr(); }
+let scratchPrize=null;   // chosen when the card is drawn, revealed by scratching
+function prizeLabel(p){ return p==='freeze'?'\u2744\ufe0f Freeze':p==='chest'?'\u{1F381} Chest':'+'+p+' pts'; }
 function scratchCard(){
   const done=!canScratch();
-  return `<div class="card scratch">
-    <div class="cap">Daily scratch card</div>
-    ${done?`<p class="lede" style="margin-top:0">Scratched today. A fresh one tomorrow.</p>`:
-      `<p class="lede" style="margin-top:0">One scratch a day. Reveal your surprise.</p>
-       <button class="bigbtn go" data-scratch="1" style="margin-top:8px">Scratch to reveal</button>`}
+  if(done){
+    return `<div class="card scratch"><div class="cap">Daily scratch card</div>
+      <p class="lede" style="margin-top:0">Scratched today. A fresh one tomorrow.</p></div>`;
+  }
+  // choose the hidden prize once per render of an unscratched card
+  if(scratchPrize===null) scratchPrize=SCRATCH_PRIZES[Math.floor(Math.random()*SCRATCH_PRIZES.length)];
+  return `<div class="card scratch"><div class="cap">Daily scratch card</div>
+    <p class="lede" style="margin-top:0">Rub the panel with your finger to reveal your prize.</p>
+    <div class="scratchbox">
+      <div class="scratchprize">${prizeLabel(scratchPrize)}</div>
+      <canvas id="scratchCanvas" class="scratchcanvas"></canvas>
+    </div>
+    <p class="lede" id="scratchHint" style="text-align:center;margin:10px 0 0;font-size:12px">Scratch to reveal</p>
   </div>`;
 }
-async function doScratch(){
-  if(!canScratch()) return;
-  const prize=SCRATCH_PRIZES[Math.floor(Math.random()*SCRATCH_PRIZES.length)];
+function initScratch(){
+  const cv=document.getElementById('scratchCanvas'); if(!cv) return;
+  const box=cv.parentElement;
+  const w=box.clientWidth, h=box.clientHeight;
+  const dpr=window.devicePixelRatio||1;
+  cv.width=w*dpr; cv.height=h*dpr; cv.style.width=w+'px'; cv.style.height=h+'px';
+  const ctx=cv.getContext('2d'); ctx.scale(dpr,dpr);
+  // coating
+  const grad=ctx.createLinearGradient(0,0,w,h);
+  grad.addColorStop(0,'#9DB4D6'); grad.addColorStop(1,'#6E8CBB');
+  ctx.fillStyle=grad; ctx.fillRect(0,0,w,h);
+  ctx.fillStyle='rgba(255,255,255,.35)'; ctx.font='700 13px sans-serif'; ctx.textAlign='center';
+  ctx.fillText('SCRATCH HERE', w/2, h/2+4);
+  ctx.globalCompositeOperation='destination-out';
+  let drawing=false, cleared=false;
+  const pt=(e)=>{ const r=cv.getBoundingClientRect(); const t=e.touches?e.touches[0]:e; return {x:t.clientX-r.left, y:t.clientY-r.top}; };
+  const scratch=(e)=>{ if(!drawing) return; e.preventDefault(); const p=pt(e);
+    ctx.beginPath(); ctx.arc(p.x,p.y,18,0,7); ctx.fill();
+    if(!cleared) checkCleared(); };
+  function checkCleared(){
+    // sample how much is scratched away
+    const img=ctx.getImageData(0,0,cv.width,cv.height).data;
+    let clearCount=0; for(let i=3;i<img.length;i+=4*40) if(img[i]===0) clearCount++;
+    const ratio=clearCount/(img.length/(4*40));
+    if(ratio>0.5 && !cleared){ cleared=true; revealScratch(); }
+  }
+  cv.addEventListener('mousedown',e=>{drawing=true;scratch(e);});
+  cv.addEventListener('mousemove',scratch);
+  window.addEventListener('mouseup',()=>drawing=false);
+  cv.addEventListener('touchstart',e=>{drawing=true;scratch(e);},{passive:false});
+  cv.addEventListener('touchmove',scratch,{passive:false});
+  cv.addEventListener('touchend',()=>drawing=false);
+}
+async function revealScratch(){
+  const cv=document.getElementById('scratchCanvas'); if(cv) cv.style.transition='opacity .4s', cv.style.opacity='0';
+  const hint=document.getElementById('scratchHint'); if(hint) hint.textContent='Revealed!';
+  const prize=scratchPrize; scratchPrize=null;
   state.play.lastScratch=todayStr();
   let msg;
   if(prize==='freeze'){ state.play.freezes+=1; msg='A streak freeze'; }
   else if(prize==='chest'){ state.play.chests+=1; msg='A mystery chest'; }
   else { state.bonusPts=(state.bonusPts||0)+prize; msg='+'+prize+' points'; }
-  await save(); render();
-  toast('Scratched: '+msg,'Nice. See you tomorrow for another.');
+  await save();
   confetti(prize==='chest'||prize==='freeze'||Number(prize)>=40);
+  toast('Scratched: '+msg,'Nice. A fresh card tomorrow.');
+  setTimeout(()=>{ if(page==='play') render(); }, 1400);
 }
 
 // ---- dice roll challenge (daily) ----
@@ -1121,18 +1178,40 @@ function diceCard(){
   return `<div class="card dice">
     <div class="cap">Dice challenge</div>
     <p class="lede" style="margin-top:0">Roll for a random challenge to chase today.</p>
-    <button class="bigbtn go" data-rolldice="1" style="margin-top:8px">Roll the dice &nbsp;&#127922;</button>
+    <div class="dicestage"><div class="bigdie" id="bigDie">&#9856;</div></div>
+    <button class="bigbtn go" data-rolldice="1" id="rollBtn">Roll the dice &nbsp;&#127922;</button>
   </div>`;
 }
 const DIE_FACES=['&#9856;','&#9857;','&#9858;','&#9859;','&#9860;','&#9861;'];
 async function rollDice(){
   if(!canRollDice()) return;
+  const die=document.getElementById('bigDie');
+  const btn=document.getElementById('rollBtn');
+  if(btn){ btn.disabled=true; btn.textContent='Rolling\u2026'; }
   const idx=Math.floor(Math.random()*DICE_CHALLENGES.length);
   const ch=DICE_CHALLENGES[idx];
+  // tumble: cycle faces quickly, slowing down, then settle
+  if(die){
+    die.classList.add('rolling');
+    let ticks=0; const total=16;
+    const iv=setInterval(()=>{
+      die.innerHTML=DIE_FACES[Math.floor(Math.random()*6)];
+      ticks++;
+      if(ticks>=total){ clearInterval(iv);
+        die.classList.remove('rolling');
+        die.innerHTML=DIE_FACES[Math.floor(Math.random()*6)];
+        finishRoll(idx,ch);
+      }
+    }, 70+ticks*4);
+  } else { finishRoll(idx,ch); }
+}
+async function finishRoll(idx,ch){
   state.play.lastDice=todayStr();
   state.play.diceChallenge={idx, text:ch.text, pts:ch.pts, face:DIE_FACES[Math.floor(Math.random()*6)]};
-  await save(); render();
+  await save();
+  confetti(false);
   toast('You rolled a challenge','+'+ch.pts+' points: '+ch.text);
+  setTimeout(()=>{ if(page==='play') render(); }, 800);
 }
 
 const CHEST_LOOT=[
@@ -1488,6 +1567,7 @@ function render(){
   document.getElementById('p-home').innerHTML = page==='home'?safe(homePage,'home'):'';
   document.getElementById('p-skills').innerHTML = page==='skills'?safe(()=>openCat?catPage(openCat):skillsPage(),'skills'):'';
   document.getElementById('p-play').innerHTML = page==='play'?safe(playPage,'play'):'';
+  if(page==='play') setTimeout(initScratch,0);
   document.getElementById('p-prog').innerHTML = page==='prog'?safe(progPage,'prog'):'';
   if(page==='prog') countUpPoints();
   ['home','skills','play','prog'].forEach(p=>document.getElementById('p-'+p).hidden = page!==p);
@@ -1516,7 +1596,6 @@ function wire(){
   const fl=document.querySelector('[data-focuslog]'); if(fl) fl.onclick=()=>openSkillSheet(fl.dataset.focuslog);
   const spin=document.getElementById('spinBtn'); if(spin && canSpin()) spin.onclick=doSpin;
   const oc=document.querySelector('[data-openchest]'); if(oc) oc.onclick=openChest;
-  const scr=document.querySelector('[data-scratch]'); if(scr) scr.onclick=doScratch;
   const rd=document.querySelector('[data-rolldice]'); if(rd) rd.onclick=rollDice;
 }
 
