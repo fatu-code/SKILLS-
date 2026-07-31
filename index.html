@@ -195,6 +195,29 @@
   .ladderinfo{display:flex;flex-direction:column;gap:12px;margin-top:12px}
   .linfo b{display:block;font-size:15px;font-weight:800;color:var(--ink)}
   .linfo span{display:block;font-size:13px;font-weight:700;color:var(--muted);line-height:1.5;margin-top:3px}
+  /* focus card */
+  .focuscard{background:linear-gradient(150deg,#1B4E86,#0B2A4A);color:#fff;border-radius:22px;padding:22px;margin-bottom:12px;position:relative;overflow:hidden}
+  .focuscard:after{content:'';position:absolute;right:-40px;bottom:-50px;width:180px;height:180px;border-radius:50%;background:rgba(37,99,235,.18)}
+  .fctop{display:flex;align-items:center;justify-content:space-between;position:relative}
+  .fcswap{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);color:#fff;border-radius:99px;padding:6px 13px;font-size:11px;font-weight:800;letter-spacing:.03em}
+  .fcname{font-size:26px;margin:6px 0 2px;position:relative;color:#fff}
+  .fcmeta{font-size:12.5px;font-weight:700;color:var(--sky);position:relative}
+  .fccount{display:flex;align-items:baseline;gap:6px;margin:14px 0 10px;position:relative}
+  .fccount b{font-family:'Varela Round',sans-serif;font-size:44px;line-height:1;color:#fff}
+  .fccount span{font-size:16px;font-weight:700;color:var(--sky)}
+  .fcbar{height:10px;background:rgba(255,255,255,.15);border-radius:99px;overflow:hidden;position:relative;margin-bottom:16px}
+  .fcbar i{display:block;height:100%;background:var(--mid);border-radius:99px;transition:width .5s ease}
+  .bigbtn.fclog{background:#fff;color:var(--ink);position:relative;box-shadow:0 4px 14px rgba(0,0,0,.18)}
+  .bigbtn.fclog:hover{background:var(--sky)}
+  .focusempty{border-style:dashed}
+  /* quest */
+  .quest.qdone{background:var(--wash);border-color:var(--soft)}
+  .qbolt{width:42px;height:42px;flex-shrink:0;border-radius:12px;background:var(--wash);display:flex;align-items:center;justify-content:center;font-size:19px;color:var(--go)}
+  .quest.qdone .qbolt{background:var(--go);color:#fff}
+  .qpts{font-family:'Varela Round',sans-serif;font-size:16px;color:var(--go)}
+  .quest.qdone .qpts{color:var(--muted)}
+  /* comeback */
+  .comeback{border-color:var(--go);background:linear-gradient(180deg,#fff,var(--wash))}
   .timeline{display:flex;flex-direction:column;gap:2px}
   .tl{display:flex;gap:14px;padding:10px 0;position:relative}
   .tl:not(:last-child):before{content:'';position:absolute;left:17px;top:38px;bottom:-2px;width:2px;background:var(--wash)}
@@ -368,7 +391,7 @@ function seedSkills(){
   return seed.map(([n,cat])=>({id:uid(),name:n,cat,reps:[],status:'active',created:Date.now()}));
 }
 
-let state={skills:[],seen:[],cfg:{weekGoal:7}};
+let state={skills:[],seen:[],cfg:{weekGoal:7},focus:null,lastSeen:null,bonusPts:0};
 let page='home', openSkill=null, openCat=null;
 let draft={rating:0, note:''};   // rep being logged
 
@@ -400,7 +423,7 @@ function skillPoints(s){
   return p;
 }
 function badgePoints(){ try{ return badgeState().filter(b=>b.got).reduce((a,b)=>a+(b.pts||0),0); }catch(e){ return 0; } }
-const totalPoints=()=>state.skills.reduce((a,s)=>a+skillPoints(s),0)+badgePoints();
+const totalPoints=()=>state.skills.reduce((a,s)=>a+skillPoints(s),0)+badgePoints()+(state.bonusPts||0);
 // the exact points a single take earns right now (for the +N pop): base 10, +40 if it crosses a stage, +150 if it masters
 function takePointsFor(s, n){
   const goal=goalOf(s);
@@ -478,12 +501,15 @@ function chainDays(n){
 /* ================= storage io ================= */
 async function load(){
   try{const raw=await store.get(KEY);
-    if(raw){const s=JSON.parse(raw); state.skills=s.skills||[]; state.seen=s.seen||[]; state.cfg=Object.assign({weekGoal:7},s.cfg||{});}
+    if(raw){const s=JSON.parse(raw); state.skills=s.skills||[]; state.seen=s.seen||[]; state.cfg=Object.assign({weekGoal:7},s.cfg||{}); state.focus=s.focus||null; state.lastSeen=s.lastSeen||null; state.bonusPts=s.bonusPts||0;}
   }catch(e){}
   migrate();
   if(!state.skills.length) state.skills=seedSkills();
+  sessionAway = daysAway();              // remember the gap for this session's welcome-back
+  if(state.lastSeen!==todayStr()){ state.lastSeen=todayStr(); save(); }
   render(); checkBadges(true);
 }
+let sessionAway=0;
 
 // repair data saved by earlier versions
 function migrate(){
@@ -599,7 +625,13 @@ function confetti(big){
   setTimeout(()=>wrap.remove(),2200);
 }
 let tt=null;
-function toast(title,sub){const t=document.getElementById('toast');t.innerHTML=`<b>${title}</b><span>${sub}</span>`;t.hidden=false;clearTimeout(tt);tt=setTimeout(()=>t.hidden=true,3600);}
+function toast(title,sub){const t=document.getElementById('toast');
+  t.innerHTML=`<b>${title}</b>${sub?`<span>${sub}</span>`:''}`;
+  t.hidden=false;
+  clearTimeout(tt);
+  tt=setTimeout(()=>{t.hidden=true;},3200);
+  t.onclick=()=>{clearTimeout(tt);t.hidden=true;};   // tap to dismiss instantly
+}
 
 /* ================= pages ================= */
 function stageBar(reps,goal){
@@ -661,9 +693,89 @@ function missionsCard(){
   </div>`;
 }
 
+// ================= DAILY QUEST (rotating) =================
+// a fresh, varied challenge each day, deterministic per-day so it doesn't reshuffle
+const QUESTS=[
+  {id:'rate5', text:'Land a 5-star take today', pts:30, done:()=>state.skills.some(s=>s.reps.some(r=>r.day===todayStr()&&r.rating===5))},
+  {id:'three', text:'Log three takes today', pts:40, done:()=>repsToday()>=3},
+  {id:'two', text:'Touch two different skills today', pts:30, done:()=>skillsTouchedToday()>=2},
+  {id:'note', text:'Add a note to a take today', pts:25, done:()=>state.skills.some(s=>s.reps.some(r=>r.day===todayStr()&&r.note))},
+  {id:'revisit', text:'Return to a skill untouched for a week', pts:35, done:()=>{
+    const wk=iso(new Date(Date.now()-7*86400000));
+    return state.skills.some(s=>{const days=s.reps.map(r=>r.day).sort();const today=s.reps.some(r=>r.day===todayStr());
+      const hadGap=days.length>1 && days.filter(d=>d<todayStr()).slice(-1)[0]<wk; return today&&hadGap;});}},
+  {id:'focusrun', text:'Log two takes on your focus skill', pts:35, done:()=>{const f=focusSkill();return f&&f.reps.filter(r=>r.day===todayStr()).length>=2;}},
+  {id:'morning', text:'Log a take before noon', pts:25, done:()=>state.skills.some(s=>s.reps.some(r=>r.day===todayStr()&&new Date(r.at).getHours()<12))}
+];
+function todaysQuest(){
+  // pick by day-of-year so it rotates daily and is stable within the day
+  const d=new Date(); const doy=Math.floor((d-new Date(d.getFullYear(),0,0))/86400000);
+  return QUESTS[doy % QUESTS.length];
+}
+function questCard(){
+  const q=todaysQuest(); const done=q.done();
+  return `<div class="card quest ${done?'qdone':''}">
+    <div style="display:flex;align-items:center;gap:13px">
+      <div class="qbolt">${done?'&#10003;':'&#9889;'}</div>
+      <div style="flex:1">
+        <div class="cap" style="margin-bottom:3px">Today\u2019s quest</div>
+        <b style="font-size:15px;font-weight:800">${q.text}</b>
+      </div>
+      <div class="qpts">${done?'&#43;'+q.pts:'&#43;'+q.pts}</div>
+    </div>
+  </div>`;
+}
+
+// ================= COMEBACK =================
+function daysAway(){ if(!state.lastSeen) return 0; return daysBetween(state.lastSeen, todayStr()); }
+function comebackBanner(){
+  const away=sessionAway;
+  if(away<3) return '';   // only greet after a real gap
+  const f=focusSkill();
+  const where=f?`${f.name} is still waiting at ${repCount(f)} of ${goalOf(f)}.`:'Your skills are right where you left them.';
+  return `<div class="card comeback">
+    <div class="cap" style="color:var(--go)">Welcome back</div>
+    <b style="font-size:17px;font-weight:800;display:block;margin:2px 0 4px">Good to see you again</b>
+    <span class="lede" style="display:block">It\u2019s been ${away} days. No guilt, just pick up where you left off. ${where}</span>
+    <div class="note" style="margin-top:10px;background:var(--wash)">Comeback bonus: your next take is worth double. Welcome home.</div>
+  </div>`;
+}
+
+// the skill the user has pinned to focus on, one at a time
+function focusSkill(){ const f=state.skills.find(s=>s.id===state.focus); return (f && repCount(f)<goalOf(f))?f:null; }
+function focusCard(){
+  const f=focusSkill();
+  if(!f){
+    return `<div class="card focusempty">
+      <div class="cap">Your focus</div>
+      <p class="lede" style="margin-top:0">Pick one skill to lock onto. Full focus beats scattered effort. The rest stay below, waiting.</p>
+      <button class="bigbtn go" data-pickfocus="1" style="margin-top:6px">Choose my focus</button>
+    </div>`;
+  }
+  const r=repCount(f), goal=goalOf(f), st=stageOf(f), left=goal-r;
+  const pct=Math.round(r/goal*100);
+  return `<div class="focuscard">
+    <div class="fctop">
+      <div class="cap" style="color:var(--sky)">Your focus</div>
+      <button class="fcswap" data-pickfocus="1">Change</button>
+    </div>
+    <h2 class="fcname">${f.name}</h2>
+    <div class="fcmeta">${st.name} &middot; ${left} take${left===1?'':'s'} to mastery</div>
+    <div class="fccount"><b>${r}</b><span>/ ${goal}</span></div>
+    <div class="fcbar"><i style="width:${pct}%"></i></div>
+    <button class="bigbtn fclog" data-focuslog="${f.id}">Log a take &nbsp;&#43;</button>
+  </div>`;
+}
+
 function homePage(){
   const L=overallLevel();
+  const f=focusSkill();
+  // other skills, excluding the focus, most-progressed first
+  const others=[...state.skills].filter(s=>!f||s.id!==f.id).sort((a,b)=>repCount(b)-repCount(a)).slice(0,5);
   return `
+  ${comebackBanner()}
+  ${focusCard()}
+
   <div class="quad">
     <div class="stat accent"><b>${totalReps()}</b><span>total takes</span></div>
     <div class="stat"><b class="sm">Level ${L.lv}</b><span>${rankFor(L.lv)}</span></div>
@@ -672,12 +784,13 @@ function homePage(){
   </div>
 
   <div style="height:12px"></div>
+  ${questCard()}
   ${missionsCard()}
   ${weeklyCard()}
   ${chainCard()}
 
-  <div class="cap" style="margin:22px 4px 10px">Your skills</div>
-  ${state.skills.length?[...state.skills].sort((a,b)=>repCount(b)-repCount(a)).slice(0,6).map(skillCard).join(''):`<div class="card"><p class="lede" style="margin:0">No skills yet. Add one on the Skills page.</p></div>`}
+  <div class="cap" style="margin:22px 4px 10px">${f?'Your other skills':'Your skills'}</div>
+  ${others.length?others.map(skillCard).join(''):`<div class="card"><p class="lede" style="margin:0">${f?'This is your only skill in progress. Add more on the Skills page.':'No skills yet. Add one on the Skills page.'}</p></div>`}
 
   <button class="bigbtn go" data-go="skills" style="margin-top:6px">Manage all skills &nbsp;&#8250;</button>`;
 }
@@ -1067,8 +1180,17 @@ async function logRep(id){
   const firstToday = !anyRepToday();
   const firstEverInSkill = beforeReps===0;
 
-  const gained=takePointsFor(s,n);
+  let gained=takePointsFor(s,n);
+  // comeback bonus: first take after a 3+ day gap is worth double
+  const backBonus = sessionAway>=3;
+  if(backBonus) gained*=2;
+  // surprise: ~1 in 12 takes is a lucky take (bonus points), except when a bigger win is already happening
+  const lucky = !backBonus && Math.random()<0.085;
+  if(lucky) gained+=25;
+  const baseTake=takePointsFor(s,n);
+  if(gained>baseTake) state.bonusPts=(state.bonusPts||0)+(gained-baseTake);
   s.reps.push({n, rating, note:(draft.note||'').trim(), at:Date.now(), day:todayStr()});
+  state.lastSeen=todayStr();
   const after=stageOfN(n,goal).idx;
   draft={rating:0,note:''};
   await save();
@@ -1083,6 +1205,8 @@ async function logRep(id){
   else if(rating && priorRated.length>=3 && rating>priorBest){ toast('Personal best!','Take '+n+' was your best '+s.name+' yet ('+rating+'/5).'); }
   else if(rating && priorRated.length>=3 && rating>priorAvg+0.5){ toast('You\u2019re improving','Take '+n+' beat your '+s.name+' average. It\u2019s working.'); }
   else if(firstToday){ toast('First take of the day','Take '+n+' of '+s.name+'. Momentum starts now.'); }
+  else if(backBonus){ toast('Welcome back \u2014 double points!','Take '+n+' of '+s.name+'. +'+gained+' for showing up.'); big=true; }
+  else if(lucky){ toast('Lucky take! \u2728','A surprise +25 on take '+n+' of '+s.name+'.'); big=true; }
   else { toast('Take '+n+' logged','\u2191 '+s.name+' \u00b7 '+(goal-n)+' to mastery.'); }
 
   pointsPop(gained);
@@ -1137,6 +1261,24 @@ function wire(){
   const wg=document.querySelector('[data-weekgoal]');
   if(wg) wg.onclick=async()=>{ const v=prompt('Reps per week to aim for:',WEEK_GOAL());
     const n=Number(v); if(n>=1){ state.cfg=state.cfg||{}; state.cfg.weekGoal=Math.round(n); await save(); render(); } };
+  document.querySelectorAll('[data-pickfocus]').forEach(b=>b.onclick=pickFocus);
+  const fl=document.querySelector('[data-focuslog]'); if(fl) fl.onclick=()=>openSkillSheet(fl.dataset.focuslog);
+}
+
+// choose the one skill to focus on
+function pickFocus(){
+  const choices=state.skills.filter(s=>repCount(s)<goalOf(s));
+  if(!choices.length){ toast('Nothing to focus on','Add a skill first, or you have mastered them all.'); return; }
+  const opts=choices.map(s=>`<button class="bigbtn ghost" data-setfocus="${s.id}" style="margin-bottom:8px;text-align:left">
+    ${s.name} <span style="float:right;color:var(--muted);font-weight:700">${repCount(s)}/${goalOf(s)}</span></button>`).join('');
+  const clear=state.focus?`<button class="bigbtn ghost" data-setfocus="" style="margin-top:4px;color:var(--muted)">Clear focus</button>`:'';
+  openSheet(`<h2>Lock onto one skill</h2>
+    <p class="lede" style="margin-bottom:16px">Full focus, one at a time. Home will lead with this until you master it or change it. The rest stay below, waiting.</p>
+    ${opts}${clear}`);
+  document.querySelectorAll('[data-setfocus]').forEach(b=>b.onclick=async()=>{
+    state.focus=b.dataset.setfocus||null; await save(); closeSheet(); page='home'; render();
+    if(state.focus){ const f=skillById(state.focus); toast('Focused on '+f.name, 'Everything else can wait. Go.'); }
+  });
 }
 
 function wireSheet(){
@@ -1258,7 +1400,7 @@ function importData(){
   inp.onchange=()=>{const f=inp.files[0];if(!f)return;const r=new FileReader();
     r.onload=async()=>{try{const d=JSON.parse(r.result);if(!d||!Array.isArray(d.skills))throw 0;
       if(!confirm('Replace everything with this backup?'))return;
-      state.skills=d.skills; state.seen=d.seen||[]; state.cfg=Object.assign({weekGoal:7},d.cfg||{}); await save(); page='home'; render(); toast('Restored','Your climb is back.');
+      state.skills=d.skills; state.seen=d.seen||[]; state.cfg=Object.assign({weekGoal:7},d.cfg||{}); state.focus=d.focus||null; state.lastSeen=d.lastSeen||null; state.bonusPts=d.bonusPts||0; await save(); page='home'; render(); toast('Restored','Your climb is back.');
     }catch(e){alert('That file could not be read.');}};
     r.readAsText(f);};
   inp.click();
